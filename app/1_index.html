@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexaThink - AI Medical Assistant</title>
+    <meta name="description" content="Advanced AI-powered pneumonia detection from chest X-rays">
+    <meta name="author" content="NexaThink">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+    
+    <style>
+        /* NexaThink AI Medical Assistant - Complete Styling */
+
+        /* Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Medical teal theme colors */
+            --primary: hsl(180, 100%, 35%);
+            --primary-dark: hsl(180, 100%, 25%);
+            --primary-light: hsl(180, 100%, 85%);
+            
+            --success: hsl(120, 100%, 30%);
+            --success-light: hsl(120, 100%, 95%);
+            --danger: hsl(0, 84%, 60%);
+            --danger-light: hsl(0, 100%, 95%);
+            
+            --background: hsl(210, 20%, 98%);
+            --foreground: hsl(210, 20%, 15%);
+            --card: hsl(0, 0%, 100%);
+            --border: hsl(210, 30%, 90%);
+            --muted: hsl(210, 15%, 55%);
+            
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, hsl(180, 100%, 35%), hsl(200, 100%, 45%));
+            --gradient-success: linear-gradient(135deg, hsl(120, 100%, 30%), hsl(140, 100%, 35%));
+            --gradient-danger: linear-gradient(135deg, hsl(0, 84%, 60%), hsl(15, 90%, 55%));
+            
+            /* Shadows */
+            --shadow-soft: 0 2px 20px -5px hsla(180, 100%, 35%, 0.1);
+            --shadow-medium: 0 8px 30px -8px hsla(180, 100%, 35%, 0.15);
+            --shadow-glow: 0 0 30px hsla(180, 100%, 35%, 0.3);
+            
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--background);
+            color: var(--foreground);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Layout */
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            margin-bottom: 32px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .logo-text p {
+            font-size: 14px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .sidebar-actions {
+            margin-bottom: 32px;
+        }
+
+        .sidebar-links {
+            flex: 1;
+        }
+
+        .sidebar-links h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .external-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--foreground);
+            transition: var(--transition);
+            margin-bottom: 8px;
+            border: 1px solid transparent;
+        }
+
+        .external-link:hover {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .link-icon {
+            font-size: 18px;
+            width: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .link-text {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .external-icon {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .sidebar-footer p {
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .content-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .content-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .content-header h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .content-header p {
+            font-size: 16px;
+            color: var(--muted);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-soft);
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-medium);
+        }
+
+        .card-header {
+            padding: 24px 24px 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--foreground);
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) - 4px);
+            font-size: 14px;
+            transition: var(--transition);
+            background: var(--card);
+            color: var(--foreground);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px hsla(180, 100%, 35%, 0.1);
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 48px 24px;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--primary);
+            background-color: var(--primary-light);
+        }
+
+        .upload-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            opacity: 0.7;
+        }
+
+        .upload-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .upload-subtitle {
+            font-size: 14px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .upload-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .xray-image {
+            max-width: 400px;
+            max-height: 400px;
+            width: auto;
+            height: auto;
+            border-radius: calc(var(--radius) - 4px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        /* Buttons */
+        .btn-medical {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: calc(var(--radius) - 4px);
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .btn-medical:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-medical:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-medical.btn-full {
+            width: 100%;
+        }
+
+        .btn-medical.btn-large {
+            padding: 16px 32px;
+            font-size: 16px;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 8px 16px;
+            border-radius: calc(var(--radius) - 4px);
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-icon {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Analysis Section */
+        .analysis-section {
+            text-align: center;
+            margin: 32px 0;
+        }
+
+        /* Results */
+        .results-card {
+            animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .results-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .result-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-success {
+            background: var(--success-light);
+            color: var(--success);
+            border: 1px solid hsla(120, 100%, 30%, 0.2);
+        }
+
+        .badge-danger {
+            background: var(--danger-light);
+            color: var(--danger);
+            border: 1px solid hsla(0, 84%, 60%, 0.2);
+        }
+
+        .result-details {
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .heatmap-controls {
+            flex-shrink: 0;
+        }
+
+        .heatmap-container {
+            text-align: center;
+        }
+
+        .heatmap-image {
+            position: relative;
+            display: inline-block;
+        }
+
+        .heatmap-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, hsla(0, 84%, 60%, 0.2), hsla(30, 90%, 55%, 0.2));
+            border-radius: calc(var(--radius) - 4px);
+            mix-blend-mode: multiply;
+        }
+
+        .heatmap-caption {
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        .modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 600px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+
+        .modal.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+        }
+
+        .chat-info h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .chat-info p {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--muted);
+            padding: 4px;
+            border-radius: 4px;
+            transition: var(--transition);
+        }
+
+        .close-btn:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        /* Chat Messages */
+        .chat-messages {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: var(--muted);
+            padding: 32px 0;
+        }
+
+        .welcome-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .welcome-message h4 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--foreground);
+        }
+
+        .welcome-message p {
+            font-size: 14px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 12px;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.ai {
+            justify-content: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-bubble {
+            background: var(--gradient-primary);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.ai .message-bubble {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            border-bottom-left-radius: 6px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            border-radius: 18px;
+            border-bottom-left-radius: 6px;
+            max-width: fit-content;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                opacity: 0.3;
+                transform: scale(0.8);
+            }
+            30% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Chat Input */
+        .chat-input-section {
+            padding: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .chat-input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: var(--transition);
+            min-height: 44px;
+            resize: none;
+        }
+
+        .chat-input-container input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px hsla(180, 100%, 35%, 0.1);
+        }
+
+        .chat-input-container .btn-medical {
+            min-width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            padding: 0;
+        }
+
+        .chat-disclaimer {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        /* Loading States */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: none;
+                padding: 16px;
+            }
+            
+            .sidebar-links {
+                display: none;
+            }
+            
+            .main-content {
+                padding: 16px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results-content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .modal {
+                padding: 10px;
+            }
+            
+            .modal-content {
+                max-height: 90vh;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content-header h2 {
+                font-size: 24px;
+            }
+            
+            .logo-text h1 {
+                font-size: 20px;
+            }
+            
+            .upload-area {
+                padding: 32px 16px;
+            }
+            
+            .xray-image {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-section">
+                    <div class="logo-icon">🩺</div>
+                    <div class="logo-text">
+                        <h1>NexaThink</h1>
+                        <p>AI Medical Assistant</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-actions">
+                <button id="mediChatBtn" class="btn-medical btn-full">
+                    <span class="icon">💬</span>
+                    MediChat
+                </button>
+            </div>
+
+            <div class="sidebar-links">
+                <h3>Learn More</h3>
+                <a href="https://www.who.int/news-room/fact-sheets/detail/pneumonia" target="_blank" class="external-link">
+                    <span class="link-icon">🌍</span>
+                    <span class="link-text">World Health Organization</span>
+                    <span class="external-icon">↗</span>
+                </a>
+                <a href="https://www.mayoclinic.org/diseases-conditions/pneumonia/symptoms-causes/syc-20354204" target="_blank" class="external-link">
+                    <span class="link-icon">🔍</span>
+                    <span class="link-text">Causes</span>
+                    <span class="external-icon">↗</span>
+                </a>
+                <a href="https://www.cdc.gov/pneumonia/symptoms.html" target="_blank" class="external-link">
+                    <span class="link-icon">🩺</span>
+                    <span class="link-text">Symptoms</span>
+                    <span class="external-icon">↗</span>
+                </a>
+                <a href="https://www.cdc.gov/pneumonia/prevention.html" target="_blank" class="external-link">
+                    <span class="link-icon">🛡️</span>
+                    <span class="link-text">Precautions</span>
+                    <span class="external-icon">↗</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>AI-powered medical assistance for pneumonia detection and guidance</p>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="content-container">
+                <div class="content-header">
+                    <h2>Pneumonia Detection System</h2>
+                    <p>Upload your chest X-ray for AI-powered analysis 🚀</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👤 Patient Information</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="patientName">Full Name</label>
+                                <input type="text" id="patientName" placeholder="Enter full name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="patientAge">Age</label>
+                                <input type="number" id="patientAge" placeholder="Enter age" min="1" max="120" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="patientGender">Gender</label>
+                                <select id="patientGender" required>
+                                    <option value="">Select gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📷 Chest X-ray Upload</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="upload-area" id="uploadArea">
+                            <input type="file" id="xrayUpload" accept="image/*" hidden>
+                            <div class="upload-placeholder" id="uploadPlaceholder">
+                                <div class="upload-icon">📤</div>
+                                <p class="upload-title">Upload Chest X-ray</p>
+                                <p class="upload-subtitle">Click to select or drag and drop your X-ray image</p>
+                                <button type="button" class="btn-outline" onclick="document.getElementById('xrayUpload').click()">
+                                    Choose File
+                                </button>
+                            </div>
+                            <div class="upload-preview" id="uploadPreview" style="display: none;">
+                                <img id="xrayImage" alt="X-ray preview" class="xray-image">
+                                <button type="button" class="btn-outline" onclick="document.getElementById('xrayUpload').click()">
+                                    Upload Different Image
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analysis-section">
+                    <button id="analyzeBtn" class="btn-medical btn-large" disabled>
+                        <span class="btn-icon">🔍</span>
+                        Analyze X-ray
+                    </button>
+                </div>
+
+                <div id="resultsSection" class="card results-card" style="display: none;">
+                    <div class="card-header">
+                        <h3>📊 Analysis Results</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="results-content">
+                            <div class="result-info">
+                                <div id="resultStatus" class="result-badges"></div>
+                                <div id="resultDetails" class="result-details"></div>
+                            </div>
+                            <div id="heatmapToggle" class="heatmap-controls" style="display: none;">
+                                <button id="toggleHeatmapBtn" class="btn-outline">
+                                    <span class="btn-icon">👁️</span>
+                                    Show Heatmap
+                                </button>
+                            </div>
+                        </div>
+                        <div id="heatmapContainer" class="heatmap-container" style="display: none;">
+                            <div class="heatmap-image">
+                                <img id="heatmapImage" alt="X-ray with heatmap" class="xray-image">
+                                <div class="heatmap-overlay"></div>
+                            </div>
+                            <p class="heatmap-caption">🔥 Heatmap overlay showing areas of concern</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="chatModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="chat-title">
+                    <div class="chat-avatar">💬</div>
+                    <div class="chat-info">
+                        <h3>MediChat</h3>
+                        <p>AI Medical Assistant</p>
+                    </div>
+                </div>
+                <button id="closeChatBtn" class="close-btn">✕</button>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                </div>
+            
+            <div class="chat-input-section">
+                <form id="chatForm" class="chat-input-container">
+                    <input type="text" id="chatInput" placeholder="Ask about symptoms, treatment..." autocomplete="off" />
+                    <button id="sendBtn" class="btn-medical" disabled>
+                        <span class="btn-icon">➤</span>
+                    </button>
+                </form>
+                <p class="chat-disclaimer">⚕️ This AI assistant provides general information only. Always consult healthcare professionals for medical advice.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Configuration ---
+        const API_URL = 'http://127.0.0.1:5000';
+
+        // --- DOM Elements ---
+        const patientNameInput = document.getElementById('patientName');
+        const patientAgeInput = document.getElementById('patientAge');
+        const patientGenderInput = document.getElementById('patientGender');
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const xrayUploadInput = document.getElementById('xrayUpload');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const xrayImagePreview = document.getElementById('xrayImage');
+        
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        const resultsSection = document.getElementById('resultsSection');
+        const resultStatus = document.getElementById('resultStatus');
+        const resultDetails = document.getElementById('resultDetails');
+        
+        const heatmapToggle = document.getElementById('heatmapToggle');
+        const toggleHeatmapBtn = document.getElementById('toggleHeatmapBtn');
+        const heatmapContainer = document.getElementById('heatmapContainer');
+        const heatmapImage = document.getElementById('heatmapImage');
+
+        // --- Chat Modal Elements ---
+        const mediChatBtn = document.getElementById('mediChatBtn');
+        const chatModal = document.getElementById('chatModal');
+        const closeChatBtn = document.getElementById('closeChatBtn');
+        const chatForm = document.getElementById('chatForm');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatMessages = document.getElementById('chatMessages');
+
+        // --- State Variables ---
+        let uploadedFile = null;
+        let chatHistory = [];
+        let isHeatmapVisible = false;
+
+        // --- Core Functions ---
+        const updateAnalyzeButtonState = () => {
+            const isFormValid = patientNameInput.value && patientAgeInput.value && patientGenderInput.value;
+            analyzeBtn.disabled = !(isFormValid && uploadedFile);
+        };
+
+        const handleFileSelect = (file) => {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('Please select a valid image file (PNG, JPG, JPEG).');
+                return;
+            }
+            uploadedFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                xrayImagePreview.src = e.target.result;
+                uploadPlaceholder.style.display = 'none';
+                uploadPreview.style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+
+            updateAnalyzeButtonState();
+        };
+
+        const resetUI = () => {
+            resultsSection.style.display = 'none';
+            heatmapContainer.style.display = 'none';
+            heatmapToggle.style.display = 'none';
+            toggleHeatmapBtn.textContent = 'Show Heatmap';
+            isHeatmapVisible = false;
+        };
+        
+        const analyzeXray = async () => {
+            if (!uploadedFile) {
+                alert("Please upload an X-ray image first.");
+                return;
+            }
+
+            resetUI();
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = `<span class="loading-spinner"></span> Analyzing...`;
+            
+            const formData = new FormData();
+            formData.append('image', uploadedFile);
+
+            try {
+                const response = await fetch(`${API_URL}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                displayResults(result);
+
+            } catch (error) {
+                console.error('Error during analysis:', error);
+                alert('Analysis failed: ' + error.message);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = `<span class="btn-icon">🔍</span> Analyze X-ray`;
+            }
+        };
+
+        const displayResults = (data) => {
+            resultsSection.style.display = 'block';
+            
+            // 1. Populate Status Badges
+            resultStatus.innerHTML = ''; // Clear previous results
+            
+            // --- MODIFIED LOGIC ---
+            // Check if the prediction string contains "Pneumonia" for any variation
+            const isPneumonia = data.prediction.includes('Pneumonia');
+
+            const predictionBadge = document.createElement('span');
+            predictionBadge.className = `badge ${isPneumonia ? 'badge-danger' : 'badge-success'}`;
+            predictionBadge.innerHTML = `<span class="icon">${isPneumonia ? '⚠️' : '✅'}</span> ${data.prediction}`;
+            
+            const confidenceBadge = document.createElement('span');
+            confidenceBadge.className = 'badge';
+            confidenceBadge.innerHTML = `Confidence: <strong>${(data.confidence * 100).toFixed(0)}%</strong>`;
+            
+            resultStatus.appendChild(predictionBadge);
+            resultStatus.appendChild(confidenceBadge);
+
+            // 2. Populate Guidance Text
+            resultDetails.textContent = data.guidance;
+
+            // 3. Handle Heatmap
+            if (data.heatmap_image_base64) {
+                heatmapImage.src = `data:image/png;base64,${data.heatmap_image_base64}`;
+                heatmapToggle.style.display = 'block';
+            } else {
+                heatmapToggle.style.display = 'none';
+            }
+            
+            // 4. Initialize Chat
+            initializeChat(data.guidance);
+        };
+
+        // --- Chat Functionality ---
+        const initializeChat = (initialGuidance) => {
+            chatHistory = [{ sender: 'model', content: initialGuidance }];
+            renderChatHistory();
+        };
+        
+        const toggleChatModal = (show) => {
+            if (show) {
+                chatModal.classList.add('visible');
+            } else {
+                chatModal.classList.remove('visible');
+            }
+        };
+        
+        const renderChatHistory = () => {
+            chatMessages.innerHTML = '';
+            chatHistory.forEach(msg => {
+                const messageEl = document.createElement('div');
+                messageEl.classList.add('message', msg.sender === 'user' ? 'user' : 'ai');
+                
+                const bubble = document.createElement('div');
+                bubble.classList.add('message-bubble');
+                bubble.textContent = msg.content;
+                
+                messageEl.appendChild(bubble);
+                chatMessages.appendChild(messageEl);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+        };
+        
+        const addTypingIndicator = () => {
+            const typingEl = document.createElement('div');
+            typingEl.id = 'typing-indicator';
+            typingEl.classList.add('message', 'ai');
+            typingEl.innerHTML = `
+                <div class="typing-indicator">
+                    <span class="typing-dots">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </span>
+                </div>
+            `;
+            chatMessages.appendChild(typingEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+        
+        const removeTypingIndicator = () => {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        };
+
+        const handleSendMessage = async (e) => {
+            e.preventDefault();
+            const messageText = chatInput.value.trim();
+            if (!messageText) return;
+            
+            // Add user message to UI
+            chatHistory.push({ sender: 'user', content: messageText });
+            renderChatHistory();
+            chatInput.value = '';
+            sendBtn.disabled = true;
+
+            addTypingIndicator();
+
+            try {
+                const response = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        history: chatHistory.slice(0, -1).map(msg => ({ // Send history BEFORE user's latest message
+                            sender: msg.sender,
+                            content: msg.content
+                        })),
+                        message: messageText
+                    })
+                });
+                
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to get response from assistant.');
+                }
+                
+                const result = await response.json();
+                chatHistory.push({ sender: 'model', content: result.reply });
+                
+            } catch (error) {
+                console.error("Chat error:", error);
+                chatHistory.push({ sender: 'model', content: `Sorry, I encountered an error: ${error.message}` });
+            } finally {
+                renderChatHistory();
+            }
+        };
+
+        // --- Event Listeners ---
+        [patientNameInput, patientAgeInput, patientGenderInput].forEach(input => {
+            input.addEventListener('input', updateAnalyzeButtonState);
+        });
+
+        uploadArea.addEventListener('click', () => xrayUploadInput.click());
+        xrayUploadInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        
+        // Drag and Drop listeners
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+        
+        analyzeBtn.addEventListener('click', analyzeXray);
+
+        toggleHeatmapBtn.addEventListener('click', () => {
+            isHeatmapVisible = !isHeatmapVisible;
+            heatmapContainer.style.display = isHeatmapVisible ? 'block' : 'none';
+            toggleHeatmapBtn.innerHTML = isHeatmapVisible ? `<span class="btn-icon">👁️</span> Hide Heatmap` : `<span class="btn-icon">👁️</span> Show Heatmap`;
+        });
+        
+        // Chat Modal Listeners
+        mediChatBtn.addEventListener('click', () => toggleChatModal(true));
+        closeChatBtn.addEventListener('click', () => toggleChatModal(false));
+        chatModal.addEventListener('click', (e) => {
+             if (e.target === chatModal) toggleChatModal(false);
+        });
+        
+        chatForm.addEventListener('submit', handleSendMessage);
+        chatInput.addEventListener('input', () => {
+            sendBtn.disabled = chatInput.value.trim().length === 0;
+        });
+
+        // --- Initial State ---
+        resetUI();
+    });
+    </script>
+</body>
+</html>
