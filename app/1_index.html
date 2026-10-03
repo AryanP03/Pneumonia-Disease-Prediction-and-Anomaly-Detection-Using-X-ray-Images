@@ -550,7 +550,15 @@
             flex-direction: column;
             overflow: hidden;
             transform: scale(0.95);
-            transition: transform 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-content.fullscreen {
+            max-width: 100%;
+            max-height: 100vh;
+            height: 100vh;
+            border-radius: 0;
+            transform: scale(1);
         }
 
         .modal.visible .modal-content {
@@ -615,7 +623,12 @@
             flex: 1;
             padding: 24px;
             overflow-y: auto;
-            max-height: 400px;
+            max-height: 50vh; /* Better than fixed 400px so it grows dynamically */
+            min-height: 300px;
+        }
+
+        .modal-content.fullscreen .chat-messages {
+            max-height: none; /* In fullscreen, let flex: 1 take over completely */
         }
 
         .welcome-message {
@@ -1057,7 +1070,10 @@
                         <p>AI Medical Assistant</p>
                     </div>
                 </div>
-                <button id="closeChatBtn" class="close-btn">✕</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="fullscreenChatBtn" class="close-btn" title="Toggle Fullscreen" style="font-size: 18px;">⛶</button>
+                    <button id="closeChatBtn" class="close-btn" title="Close Chat">✕</button>
+                </div>
             </div>
             
             <div class="chat-messages" id="chatMessages">
@@ -2103,8 +2119,18 @@
         });
         
         // Chat Modal Listeners
+        const fullscreenChatBtn = document.getElementById('fullscreenChatBtn');
+        const chatModalContent = chatModal.querySelector('.modal-content');
+        
         mediChatBtn.addEventListener('click', () => toggleChatModal(true));
         closeChatBtn.addEventListener('click', () => toggleChatModal(false));
+        
+        if (fullscreenChatBtn) {
+            fullscreenChatBtn.addEventListener('click', () => {
+                chatModalContent.classList.toggle('fullscreen');
+            });
+        }
+        
         chatModal.addEventListener('click', (e) => {
              if (e.target === chatModal) toggleChatModal(false);
         });
