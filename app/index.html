@@ -11,9 +11,12 @@
     <script src="html2pdf.bundle.min.js"></script>
     <script>
         if (typeof html2pdf === 'undefined') {
-            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>');
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\\/script>');
         }
     </script>
+    
+    <!-- Markdown Parser for Chat -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         /* NexaThink AI Medical Assistant - Complete Styling */
@@ -547,7 +550,15 @@
             flex-direction: column;
             overflow: hidden;
             transform: scale(0.95);
-            transition: transform 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-content.fullscreen {
+            max-width: 100%;
+            max-height: 100vh;
+            height: 100vh;
+            border-radius: 0;
+            transform: scale(1);
         }
 
         .modal.visible .modal-content {
@@ -612,7 +623,12 @@
             flex: 1;
             padding: 24px;
             overflow-y: auto;
-            max-height: 400px;
+            max-height: 50vh; /* Better than fixed 400px so it grows dynamically */
+            min-height: 300px;
+        }
+
+        .modal-content.fullscreen .chat-messages {
+            max-height: none; /* In fullscreen, let flex: 1 take over completely */
         }
 
         .welcome-message {
@@ -653,24 +669,57 @@
         }
 
         .message-bubble {
-            max-width: 80%;
+            max-width: 85%;
             padding: 12px 16px;
             border-radius: 18px;
             font-size: 14px;
             line-height: 1.5;
-            white-space: pre-wrap;
         }
 
         .message.user .message-bubble {
             background: var(--gradient-primary);
             color: white;
             border-bottom-right-radius: 6px;
+            white-space: pre-wrap;
         }
 
         .message.ai .message-bubble {
-            background: var(--primary-light);
+            background: #ffffff;
             color: var(--primary-dark);
             border-bottom-left-radius: 6px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* Markdown Styles for AI Bubble */
+        .message.ai .message-bubble p {
+            margin-bottom: 8px;
+        }
+        .message.ai .message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+        .message.ai .message-bubble ul, .message.ai .message-bubble ol {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+        .message.ai .message-bubble table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+        .message.ai .message-bubble th, .message.ai .message-bubble td {
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .message.ai .message-bubble th {
+            background: var(--primary-light);
+            font-weight: 600;
+        }
+        .message.ai .message-bubble strong {
+            font-weight: 600;
+            color: var(--primary-dark);
         }
 
         .typing-indicator {
@@ -854,10 +903,6 @@
                     <span class="icon">💬</span>
                     MediChat
                 </button>
-                <button id="backendConfigBtn" class="btn-outline btn-full" style="margin-top: 8px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: white; border-color: var(--border);">
-                    <span class="icon">⚙️</span>
-                    Backend API URL
-                </button>
             </div>
 
             <div class="sidebar-links">
@@ -1025,7 +1070,10 @@
                         <p>AI Medical Assistant</p>
                     </div>
                 </div>
-                <button id="closeChatBtn" class="close-btn">✕</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="fullscreenChatBtn" class="close-btn" title="Toggle Fullscreen" style="font-size: 18px;">⛶</button>
+                    <button id="closeChatBtn" class="close-btn" title="Minimize Chat" style="font-size: 18px; margin-top: -8px;">_</button>
+                </div>
             </div>
             
             <div class="chat-messages" id="chatMessages">
@@ -1100,9 +1148,8 @@
 
     <!-- Production Cloud Backend Configuration -->
     <script>
-        // When deploying frontend on Vercel and backend on Render, paste your Render URL here:
-        // Example: window.BACKEND_API_URL = "https://nexathink-api.onrender.com";
-        window.BACKEND_API_URL = window.BACKEND_API_URL || "";
+        // Production Render Backend URL
+        window.BACKEND_API_URL = "https://nexathink-ai-backend.onrender.com";
     </script>
 
     <script>
@@ -1928,7 +1975,17 @@
                 
                 const bubble = document.createElement('div');
                 bubble.classList.add('message-bubble');
-                bubble.textContent = msg.content;
+                
+                if (msg.sender === 'model' || msg.sender === 'ai') {
+                    if (typeof marked !== 'undefined') {
+                        // Parse markdown for AI messages
+                        bubble.innerHTML = marked.parse(msg.content);
+                    } else {
+                        bubble.textContent = msg.content;
+                    }
+                } else {
+                    bubble.textContent = msg.content;
+                }
                 
                 messageEl.appendChild(bubble);
                 chatMessages.appendChild(messageEl);
@@ -2061,8 +2118,18 @@
         });
         
         // Chat Modal Listeners
+        const fullscreenChatBtn = document.getElementById('fullscreenChatBtn');
+        const chatModalContent = chatModal.querySelector('.modal-content');
+        
         mediChatBtn.addEventListener('click', () => toggleChatModal(true));
         closeChatBtn.addEventListener('click', () => toggleChatModal(false));
+        
+        if (fullscreenChatBtn) {
+            fullscreenChatBtn.addEventListener('click', () => {
+                chatModalContent.classList.toggle('fullscreen');
+            });
+        }
+        
         chatModal.addEventListener('click', (e) => {
              if (e.target === chatModal) toggleChatModal(false);
         });

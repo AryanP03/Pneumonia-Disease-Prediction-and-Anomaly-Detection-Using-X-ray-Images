@@ -1072,7 +1072,7 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button id="fullscreenChatBtn" class="close-btn" title="Toggle Fullscreen" style="font-size: 18px;">⛶</button>
-                    <button id="closeChatBtn" class="close-btn" title="Close Chat">✕</button>
+                    <button id="closeChatBtn" class="close-btn" title="Minimize Chat" style="font-size: 18px; margin-top: -8px;">_</button>
                 </div>
             </div>
             
@@ -1148,9 +1148,8 @@
 
     <!-- Production Cloud Backend Configuration -->
     <script>
-        // When deploying frontend on Vercel and backend on Render, paste your Render URL here:
-        // Example: window.BACKEND_API_URL = "https://nexathink-api.onrender.com";
-        window.BACKEND_API_URL = window.BACKEND_API_URL || "";
+        // Production Render Backend URL
+        window.BACKEND_API_URL = "https://nexathink-ai-backend.onrender.com";
     </script>
 
     <script>
