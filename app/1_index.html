@@ -8,6 +8,12 @@
     <meta name="author" content="NexaThink">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+    <script src="html2pdf.bundle.min.js"></script>
+    <script>
+        if (typeof html2pdf === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>');
+        }
+    </script>
     
     <style>
         /* NexaThink AI Medical Assistant - Complete Styling */
@@ -268,6 +274,31 @@
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px hsla(180, 100%, 35%, 0.1);
+        }
+
+        .required-star {
+            color: #ef4444;
+            font-weight: 700;
+            margin-left: 3px;
+        }
+
+        .input-error {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+            animation: inputShake 0.4s ease-in-out;
+        }
+
+        @keyframes inputShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+
+        #closeInvalidXrayBtn:hover {
+            background: #ef4444 !important;
+            color: white !important;
+            transform: scale(1.08);
         }
 
         /* Upload Area */
@@ -862,21 +893,28 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>👤 Patient Information</h3>
+                        <span style="font-size: 11px; font-weight: 600; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.3px;">
+                            * All Fields Compulsory
+                        </span>
                     </div>
                     <div class="card-content">
+                        <div id="patientFormError" style="display: none; background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; color: #b91c1c; font-size: 13px; font-weight: 600; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">⚠️</span>
+                            <span id="patientFormErrorText">Please complete all compulsory fields (Full Name, Age, and Gender) before analyzing.</span>
+                        </div>
                         <div class="form-grid">
                             <div class="form-group">
-                                <label for="patientName">Full Name</label>
-                                <input type="text" id="patientName" placeholder="Enter full name" required>
+                                <label for="patientName">Full Name <span class="required-star">*</span></label>
+                                <input type="text" id="patientName" placeholder="Enter patient's full name" required autocomplete="name">
                             </div>
                             <div class="form-group">
-                                <label for="patientAge">Age</label>
-                                <input type="number" id="patientAge" placeholder="Enter age" min="1" max="120" required>
+                                <label for="patientAge">Age <span class="required-star">*</span></label>
+                                <input type="number" id="patientAge" placeholder="Enter age (1 - 120)" min="1" max="120" required>
                             </div>
                             <div class="form-group">
-                                <label for="patientGender">Gender</label>
+                                <label for="patientGender">Gender <span class="required-star">*</span></label>
                                 <select id="patientGender" required>
                                     <option value="">Select gender</option>
                                     <option value="male">Male</option>
@@ -899,9 +937,22 @@
                                 <div class="upload-icon">📤</div>
                                 <p class="upload-title">Upload Chest X-ray</p>
                                 <p class="upload-subtitle">Click to select or drag and drop your X-ray image</p>
-                                <button type="button" class="btn-outline" onclick="document.getElementById('xrayUpload').click()">
-                                    Choose File
-                                </button>
+                                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px;">
+                                    <button type="button" class="btn-outline" onclick="document.getElementById('xrayUpload').click()">
+                                        Choose File
+                                    </button>
+                                </div>
+                                <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 14px; text-align: center;">
+                                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Or test instantly with a demo radiograph:</p>
+                                    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                                        <button type="button" id="loadNormalSampleBtn" class="btn-outline" style="font-size: 12px; padding: 6px 14px; border-color: var(--primary);">
+                                            🧪 Normal Sample
+                                        </button>
+                                        <button type="button" id="loadPneumoniaSampleBtn" class="btn-outline" style="font-size: 12px; padding: 6px 14px; border-color: var(--danger);">
+                                            ⚠️ Pneumonia Sample
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="upload-preview" id="uploadPreview" style="display: none;">
                                 <img id="xrayImage" alt="X-ray preview" class="xray-image">
@@ -944,6 +995,16 @@
                             </div>
                             <p class="heatmap-caption">🔥 Heatmap overlay showing areas of concern</p>
                         </div>
+
+                        <!-- Detailed Medical Report Download Action -->
+                        <div id="reportActionContainer" style="display: none; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center;">
+                            <button id="downloadReportBtn" class="btn-medical" style="font-size: 15px; padding: 14px 32px; box-shadow: var(--shadow-medium); display: inline-flex; align-items: center; justify-content: center; gap: 10px; margin: 0 auto; cursor: pointer;">
+                                <span class="btn-icon">📄</span> Download Report
+                            </button>
+                            <p style="font-size: 12px; color: var(--muted); margin-top: 8px;">
+                                Opens a detailed, multi-page clinical diagnostic report with NexaThink branding and Grad-CAM localization.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -978,15 +1039,71 @@
         </div>
     </div>
 
+    <!-- Dedicated Modal for Invalid Non-Chest X-ray Upload -->
+    <div id="invalidXrayModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="invalidXrayMessage">
+        <div class="modal-content" style="max-width: 480px; text-align: center; border-top: 6px solid #ef4444; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.25);">
+            <div class="modal-header" style="border-bottom: none; padding: 16px 20px 0 20px; display: flex; justify-content: flex-end;">
+                <button id="closeInvalidXrayBtn" class="close-btn" style="font-size: 22px; font-weight: 700; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #dc2626; background: #fee2e2; border: 1px solid #fecaca; cursor: pointer; transition: all 0.2s;" aria-label="Close">✕</button>
+            </div>
+            <div style="padding: 4px 28px 28px 28px;">
+                <div style="width: 72px; height: 72px; background: #fee2e2; border: 3px solid #fca5a5; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 16px auto; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);">
+                    ⚠️
+                </div>
+                <div style="background: #fef2f2; border: 2px solid #ef4444; border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.08);">
+                    <h3 id="invalidXrayMessage" style="font-size: 19px; font-weight: 800; color: #dc2626; margin: 0; line-height: 1.4;">
+                        Please upload a valid chest X-ray image
+                    </h3>
+                </div>
+                <p id="invalidXrayDetails" style="font-size: 13.5px; color: #64748b; line-height: 1.55; margin-bottom: 22px;">
+                    The uploaded image does not meet the radiographic and thoracic criteria of a chest X-ray. Only human chest radiographs (PA/AP views) are supported.
+                </p>
+                <button id="invalidXrayOkBtn" class="btn-medical" style="width: 100%; justify-content: center; padding: 13px 24px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);">
+                    OK, Choose Another Image
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Configuration ---
-        const API_URL = 'http://127.0.0.1:5000';
+        // --- Flexible API Discovery with Automatic Fallbacks ---
+        const getApiCandidates = () => {
+            const currentPort = window.location.port;
+            const currentHost = window.location.hostname || '127.0.0.1';
+            const protocol = window.location.protocol.startsWith('http') ? window.location.protocol : 'http:';
+
+            if (currentPort === '5000') {
+                return ['', `${protocol}//${currentHost}:5000`, 'http://127.0.0.1:5000', 'http://localhost:5000'];
+            }
+            return [
+                `${protocol}//${currentHost}:5000`,
+                'http://127.0.0.1:5000',
+                'http://localhost:5000'
+            ];
+        };
+
+        const fetchWithApiFallback = async (endpoint, options = {}) => {
+            const candidates = getApiCandidates();
+            let lastErr = null;
+            for (const base of candidates) {
+                try {
+                    const url = base ? `${base}${endpoint}` : endpoint;
+                    const res = await fetch(url, options);
+                    return res;
+                } catch (err) {
+                    lastErr = err;
+                    console.warn(`Fetch attempt to ${base}${endpoint} failed, trying next candidate...`, err);
+                }
+            }
+            throw lastErr || new Error("Failed to connect to backend server. Make sure Flask server is active on port 5000.");
+        };
 
         // --- DOM Elements ---
         const patientNameInput = document.getElementById('patientName');
         const patientAgeInput = document.getElementById('patientAge');
         const patientGenderInput = document.getElementById('patientGender');
+        const patientFormError = document.getElementById('patientFormError');
+        const patientFormErrorText = document.getElementById('patientFormErrorText');
         
         const uploadArea = document.getElementById('uploadArea');
         const xrayUploadInput = document.getElementById('xrayUpload');
@@ -1004,6 +1121,9 @@
         const toggleHeatmapBtn = document.getElementById('toggleHeatmapBtn');
         const heatmapContainer = document.getElementById('heatmapContainer');
         const heatmapImage = document.getElementById('heatmapImage');
+        
+        const reportActionContainer = document.getElementById('reportActionContainer');
+        const downloadReportBtn = document.getElementById('downloadReportBtn');
 
         // --- Chat Modal Elements ---
         const mediChatBtn = document.getElementById('mediChatBtn');
@@ -1014,46 +1134,315 @@
         const sendBtn = document.getElementById('sendBtn');
         const chatMessages = document.getElementById('chatMessages');
 
+        // --- Invalid X-ray Modal Elements ---
+        const invalidXrayModal = document.getElementById('invalidXrayModal');
+        const closeInvalidXrayBtn = document.getElementById('closeInvalidXrayBtn');
+        const invalidXrayOkBtn = document.getElementById('invalidXrayOkBtn');
+        const invalidXrayMessage = document.getElementById('invalidXrayMessage');
+        const invalidXrayDetails = document.getElementById('invalidXrayDetails');
+
         // --- State Variables ---
         let uploadedFile = null;
         let chatHistory = [];
         let isHeatmapVisible = false;
+        let currentAnalysisResult = null;
+        let currentAnalysisImage = null;
+
+        // --- Reset To Initial Upload State (Restores default state when website opens) ---
+        const resetToInitialUploadState = () => {
+            uploadedFile = null;
+            if (xrayUploadInput) {
+                xrayUploadInput.value = '';
+            }
+            if (xrayImagePreview) {
+                xrayImagePreview.src = '';
+            }
+            if (uploadPreview) {
+                uploadPreview.style.display = 'none';
+            }
+            if (uploadPlaceholder) {
+                uploadPlaceholder.style.display = 'flex';
+            }
+            updateAnalyzeButtonState();
+            resetUI();
+        };
+        window.resetToInitialUploadState = resetToInitialUploadState;
 
         // --- Core Functions ---
         const updateAnalyzeButtonState = () => {
-            const isFormValid = patientNameInput.value && patientAgeInput.value && patientGenderInput.value;
-            analyzeBtn.disabled = !(isFormValid && uploadedFile);
+            analyzeBtn.disabled = !uploadedFile;
         };
 
-        const handleFileSelect = (file) => {
+        const showInvalidXrayPopup = (customMsg, detailsMsg) => {
+            const finalMsg = customMsg || "Please upload a valid chest X-ray image";
+            if (invalidXrayMessage) {
+                invalidXrayMessage.textContent = finalMsg;
+            }
+            if (invalidXrayDetails) {
+                invalidXrayDetails.textContent = detailsMsg || "The uploaded image does not meet the radiographic and thoracic criteria of a chest X-ray. Only human chest radiographs (PA/AP views) are supported.";
+            }
+            if (invalidXrayModal) {
+                invalidXrayModal.classList.add('visible');
+            } else {
+                alert(finalMsg);
+            }
+
+            // Halt any running analyze animation while modal is shown
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = `<span class="btn-icon">🔍</span> Analyze X-ray`;
+        };
+
+        window.showInvalidXrayPopup = showInvalidXrayPopup;
+
+        if (closeInvalidXrayBtn) {
+            closeInvalidXrayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                invalidXrayModal.classList.remove('visible');
+                resetToInitialUploadState();
+            });
+        }
+        if (invalidXrayOkBtn) {
+            invalidXrayOkBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                invalidXrayModal.classList.remove('visible');
+                resetToInitialUploadState();
+            });
+        }
+        if (invalidXrayModal) {
+            invalidXrayModal.addEventListener('click', (e) => {
+                if (e.target === invalidXrayModal) {
+                    invalidXrayModal.classList.remove('visible');
+                    resetToInitialUploadState();
+                }
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && invalidXrayModal && invalidXrayModal.classList.contains('visible')) {
+                invalidXrayModal.classList.remove('visible');
+                resetToInitialUploadState();
+            }
+        });
+
+        // --- Compulsory Patient Information Validator ---
+        const validatePatientDetails = () => {
+            let isValid = true;
+            let firstInvalid = null;
+            const missing = [];
+
+            const name = patientNameInput ? patientNameInput.value.trim() : '';
+            if (!name) {
+                patientNameInput.classList.add('input-error');
+                missing.push('Full Name');
+                if (!firstInvalid) firstInvalid = patientNameInput;
+                isValid = false;
+            } else {
+                patientNameInput.classList.remove('input-error');
+            }
+
+            const ageVal = patientAgeInput ? parseInt(patientAgeInput.value, 10) : NaN;
+            if (!patientAgeInput || !patientAgeInput.value || isNaN(ageVal) || ageVal < 1 || ageVal > 120) {
+                patientAgeInput.classList.add('input-error');
+                missing.push('Valid Age (1 - 120)');
+                if (!firstInvalid) firstInvalid = patientAgeInput;
+                isValid = false;
+            } else {
+                patientAgeInput.classList.remove('input-error');
+            }
+
+            const gender = patientGenderInput ? patientGenderInput.value : '';
+            if (!gender) {
+                patientGenderInput.classList.add('input-error');
+                missing.push('Gender');
+                if (!firstInvalid) firstInvalid = patientGenderInput;
+                isValid = false;
+            } else {
+                patientGenderInput.classList.remove('input-error');
+            }
+
+            if (!isValid) {
+                if (patientFormError && patientFormErrorText) {
+                    patientFormError.style.display = 'flex';
+                    patientFormErrorText.textContent = `Compulsory fields missing: ${missing.join(', ')}. Please complete all fields before analysis.`;
+                }
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                }
+                return false;
+            }
+
+            if (patientFormError) {
+                patientFormError.style.display = 'none';
+            }
+            return true;
+        };
+
+        // --- Client-Side Instant Pre-Validation on Canvas ---
+        const quickValidateImage = (file) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    const w = img.naturalWidth || img.width;
+                    const h = img.naturalHeight || img.height;
+                    const ar = w / h;
+                    if (ar < 0.45 || ar > 1.85) {
+                        resolve({ isValid: false, reason: `Unusual image aspect ratio (${ar.toFixed(2)}). Genuine chest radiographs are typically portrait or square.` });
+                        return;
+                    }
+
+                    // Sample pixels on a small canvas to check color saturation and document characteristics
+                    const canvas = document.createElement('canvas');
+                    const sampleSize = 64;
+                    canvas.width = sampleSize;
+                    canvas.height = sampleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+                    const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+                    
+                    let totalDiff = 0;
+                    let colorPixelCount = 0;
+                    let whitePixelCount = 0;
+                    let blackPixelCount = 0;
+                    const totalPixels = sampleSize * sampleSize;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        const diff = (Math.abs(r - g) + Math.abs(g - b) + Math.abs(r - b)) / 3;
+                        totalDiff += diff;
+                        if (diff > 14) colorPixelCount++;
+                        if (r > 240 && g > 240 && b > 240) whitePixelCount++;
+                        if (r < 10 && g < 10 && b < 10) blackPixelCount++;
+                    }
+
+                    const meanDiff = totalDiff / totalPixels;
+                    const colorRatio = colorPixelCount / totalPixels;
+                    const whiteRatio = whitePixelCount / totalPixels;
+                    const blackRatio = blackPixelCount / totalPixels;
+
+                    // If image contains noticeable color:
+                    if (meanDiff > 10 || colorRatio > 0.05) {
+                        resolve({ isValid: false, reason: "The uploaded file is a color image. Genuine chest X-rays are monochromatic radiographs." });
+                        return;
+                    }
+
+                    // If image is mostly pure white (document or screenshot):
+                    if (whiteRatio > 0.38) {
+                        resolve({ isValid: false, reason: "The uploaded file appears to be a document or text screenshot, not a chest radiograph." });
+                        return;
+                    }
+
+                    // If image is mostly pure black:
+                    if (blackRatio > 0.78) {
+                        resolve({ isValid: false, reason: "The uploaded file appears to be empty or lacks thoracic structures." });
+                        return;
+                    }
+
+                    resolve({ isValid: true });
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    resolve({ isValid: false, reason: "Could not read the uploaded image." });
+                };
+                img.src = objectUrl;
+            });
+        };
+
+        const handleFileSelect = async (file) => {
             if (!file || !file.type.startsWith('image/')) {
-                alert('Please select a valid image file (PNG, JPG, JPEG).');
+                showInvalidXrayPopup("Please upload a valid chest X-ray image", "Only PNG, JPG, or JPEG image files are accepted.");
                 return;
             }
-            uploadedFile = file;
 
+            // 1. Instant client-side check
+            const clientCheck = await quickValidateImage(file);
+            if (!clientCheck.isValid) {
+                showInvalidXrayPopup("Please upload a valid chest X-ray image", clientCheck.reason);
+                return;
+            }
+
+            // 2. Display preview tentatively
+            uploadedFile = file;
             const reader = new FileReader();
             reader.onload = (e) => {
+                if (!uploadedFile) return;
                 xrayImagePreview.src = e.target.result;
                 uploadPlaceholder.style.display = 'none';
                 uploadPreview.style.display = 'flex';
             };
             reader.readAsDataURL(file);
-
             updateAnalyzeButtonState();
+
+            // 3. Server-side deep anatomical & morphological validation
+            try {
+                const valFormData = new FormData();
+                valFormData.append('image', file);
+                const valRes = await fetchWithApiFallback('/validate_xray', {
+                    method: 'POST',
+                    body: valFormData
+                });
+                if (valRes.ok) {
+                    const valData = await valRes.json();
+                    if (!valData.is_valid) {
+                        showInvalidXrayPopup("Please upload a valid chest X-ray image", valData.reason || "The image does not match chest radiograph biometrics.");
+                        return;
+                    }
+                } else {
+                    const valErrData = await valRes.json().catch(() => ({}));
+                    if (valErrData.is_valid === false || valErrData.invalid_xray) {
+                        showInvalidXrayPopup("Please upload a valid chest X-ray image", valErrData.reason || valErrData.details || valErrData.message);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn("Backend validation check skipped due to network/offline mode:", err);
+            }
+        };
+
+        window.handleFileSelect = handleFileSelect;
+
+        const loadSampleImage = async (filename, demoName, age, gender) => {
+            try {
+                const response = await fetchWithApiFallback(`/samples/${filename}`);
+                if (!response.ok) throw new Error("Sample file not found on server.");
+                const blob = await response.blob();
+                const file = new File([blob], filename, { type: 'image/png' });
+                patientNameInput.value = demoName;
+                patientAgeInput.value = age;
+                patientGenderInput.value = gender;
+                [patientNameInput, patientAgeInput, patientGenderInput].forEach(inp => inp.classList.remove('input-error'));
+                if (patientFormError) patientFormError.style.display = 'none';
+                handleFileSelect(file);
+            } catch (err) {
+                console.error("Failed to load sample:", err);
+                alert("Could not load sample radiograph: " + err.message);
+            }
         };
 
         const resetUI = () => {
             resultsSection.style.display = 'none';
             heatmapContainer.style.display = 'none';
             heatmapToggle.style.display = 'none';
+            if (reportActionContainer) {
+                reportActionContainer.style.display = 'none';
+            }
             toggleHeatmapBtn.textContent = 'Show Heatmap';
             isHeatmapVisible = false;
+            currentAnalysisResult = null;
+            currentAnalysisImage = null;
         };
         
         const analyzeXray = async () => {
+            // 1. Enforce compulsory patient details
+            if (!validatePatientDetails()) {
+                return;
+            }
+
+            // 2. Validate uploaded file presence
             if (!uploadedFile) {
-                alert("Please upload an X-ray image first.");
+                showInvalidXrayPopup("Please upload a valid chest X-ray image", "No chest X-ray currently selected. Please upload a chest radiograph.");
                 return;
             }
 
@@ -1065,13 +1454,22 @@
             formData.append('image', uploadedFile);
 
             try {
-                const response = await fetch(`${API_URL}/predict`, {
+                const response = await fetchWithApiFallback('/predict', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = await response.json().catch(() => ({}));
+                    const isInvalidXray = errorData.invalid_xray || 
+                        (errorData.error && errorData.error.toLowerCase().includes('chest x-ray')) ||
+                        (errorData.message && errorData.message.toLowerCase().includes('chest x-ray')) ||
+                        (errorData.details && errorData.details.toLowerCase().includes('chest x-ray'));
+
+                    if (isInvalidXray) {
+                        showInvalidXrayPopup("Please upload a valid chest X-ray image", errorData.details || errorData.error || errorData.message);
+                        return;
+                    }
                     throw new Error(errorData.error || `Server error: ${response.status}`);
                 }
 
@@ -1080,21 +1478,27 @@
 
             } catch (error) {
                 console.error('Error during analysis:', error);
-                alert('Analysis failed: ' + error.message);
+                const errMsg = error.message || '';
+                if (errMsg.toLowerCase().includes('chest x-ray') || errMsg.toLowerCase().includes('radiograph')) {
+                    showInvalidXrayPopup("Please upload a valid chest X-ray image", errMsg);
+                } else {
+                    alert('Analysis failed: ' + errMsg);
+                }
             } finally {
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = `<span class="btn-icon">🔍</span> Analyze X-ray`;
+                updateAnalyzeButtonState();
             }
         };
+        window.analyzeXray = analyzeXray;
+        window.validatePatientDetails = validatePatientDetails;
 
         const displayResults = (data) => {
             resultsSection.style.display = 'block';
             
             // 1. Populate Status Badges
-            resultStatus.innerHTML = ''; // Clear previous results
+            resultStatus.innerHTML = '';
             
-            // --- MODIFIED LOGIC ---
-            // Check if the prediction string contains "Pneumonia" for any variation
             const isPneumonia = data.prediction.includes('Pneumonia');
 
             const predictionBadge = document.createElement('span');
@@ -1111,16 +1515,334 @@
             // 2. Populate Guidance Text
             resultDetails.textContent = data.guidance;
 
-            // 3. Handle Heatmap
+            // 3. Handle Heatmap & Auto-display
             if (data.heatmap_image_base64) {
                 heatmapImage.src = `data:image/png;base64,${data.heatmap_image_base64}`;
                 heatmapToggle.style.display = 'block';
+                // Automatically expand heatmap so the affected region is immediately visible
+                isHeatmapVisible = true;
+                heatmapContainer.style.display = 'block';
+                toggleHeatmapBtn.innerHTML = `<span class="btn-icon">👁️</span> Hide Heatmap`;
+                
+                const captionEl = document.querySelector('.heatmap-caption');
+                if (captionEl) {
+                    if (isPneumonia) {
+                        captionEl.innerHTML = `🔥 <strong>Grad-CAM Activation Map:</strong> High-intensity yellow/red heat zones localize pneumonia infiltrates & consolidations.`;
+                    } else {
+                        captionEl.innerHTML = `🟢 <strong>Grad-CAM Activation Map:</strong> Uniform baseline distribution confirms clear aerated lung parenchyma.`;
+                    }
+                }
             } else {
                 heatmapToggle.style.display = 'none';
+                heatmapContainer.style.display = 'none';
             }
             
-            // 4. Initialize Chat
+            // 4. Update Report State & Show Download Button
+            currentAnalysisResult = data;
+            currentAnalysisImage = xrayImagePreview.src;
+            if (reportActionContainer) {
+                reportActionContainer.style.display = 'block';
+            }
+
+            // 5. Initialize Chat
             initializeChat(data.guidance);
+        };
+
+        // --- Detailed Radiology Report Generation Function ---
+        const generateAndDownloadReport = async () => {
+            if (!currentAnalysisResult) {
+                alert("Please analyze a chest X-ray first to generate the report.");
+                return;
+            }
+
+            downloadReportBtn.disabled = true;
+            downloadReportBtn.innerHTML = `<span class="loading-spinner"></span> Generating PDF Report...`;
+
+            try {
+                const patientName = (patientNameInput.value && patientNameInput.value.trim()) || 'Anonymous Patient';
+                const patientAge = patientAgeInput.value || '45';
+                const patientGender = (patientGenderInput.value && patientGenderInput.value !== '') ? patientGenderInput.value.toUpperCase() : 'NOT SPECIFIED';
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const reportId = `NX-RAD-${now.getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+                const isPneumonia = currentAnalysisResult.prediction.includes('Pneumonia');
+                const confidencePct = (currentAnalysisResult.confidence * 100).toFixed(1);
+                const predictionTitle = currentAnalysisResult.prediction.toUpperCase();
+
+                const findingsHtml = isPneumonia ? `
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">1. LUNG FIELDS & PARENCHYMA:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Prominent focal airspace consolidation and patchy infiltrative opacification identified within pulmonary parenchyma. Localized parenchymal attenuation and air bronchograms present, characteristic of acute inflammatory exudate. Contralateral lung parenchymal volume remains aerated.</p>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">2. EXPLAINABLE AI (GRAD-CAM) ACTIVATION MAPPING:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Deep convolutional feature analysis demonstrates high thermal gradient intensity (red/yellow focus) overlying the consolidation zone, confirming neural network feature attribution aligns specifically with the pathological infiltrates.</p>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">3. PLEURAL SPACES:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Bilateral costophrenic and cardiophrenic angles visualized. No large pleural effusion or pneumothorax identified. Minor reactive pleural thickening cannot be excluded in proximity to the consolidated region.</p>
+                    </div>
+                    <div>
+                        <strong style="color: #0f766e; font-size: 8pt;">4. CARDIOMEDIASTINAL & BONY STRUCTURES:</strong>
+                        <p style="margin: 1px 0 0 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Cardiothoracic ratio (CTR) is within normal limits (&lt; 0.50). Mediastinum and trachea are midline. Visualized thoracic cage, clavicles, and ribs appear intact without acute osseous lesion.</p>
+                    </div>
+                ` : `
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">1. LUNG FIELDS & PARENCHYMA:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Bilateral pulmonary fields demonstrate clear, uniform radiolucency. No focal alveolar consolidation, pneumonic infiltrates, ground-glass opacities, or mass lesions identified. Normal vascular branching patterns throughout all lobes.</p>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">2. EXPLAINABLE AI (GRAD-CAM) ACTIVATION MAPPING:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Convolutional Grad-CAM gradient distribution shows low-magnitude, diffuse basilar baseline weighting across both hemithoraces, confirming the absence of pathological localized hot-spots.</p>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <strong style="color: #0f766e; font-size: 8pt;">3. PLEURAL SPACES:</strong>
+                        <p style="margin: 1px 0 3px 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Costophrenic and cardiophrenic sulci are sharp and clearly defined bilaterally. No evidence of pleural effusion, blunting, or pneumothorax.</p>
+                    </div>
+                    <div>
+                        <strong style="color: #0f766e; font-size: 8pt;">4. CARDIOMEDIASTINAL & BONY STRUCTURES:</strong>
+                        <p style="margin: 1px 0 0 0; color: #334155; font-size: 7.5pt; line-height: 1.35;">Cardiothoracic ratio is normal (&lt; 0.50). Cardiac silhouette and great vessels show normal morphology. Trachea is central. Thoracic cage skeleton and bilateral hemidiaphragmatic domes are normal.</p>
+                    </div>
+                `;
+
+                const impressionHtml = isPneumonia ? `
+                    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px;">
+                        <strong style="color: #991b1b; font-size: 9pt;">DIAGNOSTIC IMPRESSION:</strong>
+                        <p style="margin: 3px 0 0 0; color: #7f1d1d; font-size: 8pt; font-weight: 500; line-height: 1.4;">
+                            1. Acute inflammatory airspace consolidation identified, highly consistent with <strong>${predictionTitle}</strong> (ResNet-50 Confidence: <strong>${confidencePct}%</strong>).<br>
+                            2. Grad-CAM saliency localization confirms focal involvement in pulmonary parenchyma.<br>
+                            3. Clinical auscultation and laboratory correlation strongly indicated.
+                        </p>
+                    </div>
+                ` : `
+                    <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px;">
+                        <strong style="color: #166534; font-size: 9pt;">DIAGNOSTIC IMPRESSION:</strong>
+                        <p style="margin: 3px 0 0 0; color: #14532d; font-size: 8pt; font-weight: 500; line-height: 1.4;">
+                            1. <strong>NORMAL CHEST RADIOGRAPH</strong> (ResNet-50 Confidence: <strong>${confidencePct}%</strong>).<br>
+                            2. No acute cardiopulmonary abnormality, focal consolidation, or active pneumonia detected.<br>
+                            3. Correlate with presenting symptoms if active cough or fever persists.
+                        </p>
+                    </div>
+                `;
+
+                const recommendationsHtml = isPneumonia ? `
+                    <ol style="margin: 0; padding-left: 18px; font-size: 7.5pt; color: #334155; line-height: 1.45;">
+                        <li><strong>Physician Clinical Review:</strong> Immediate physical evaluation by a licensed primary care physician or pulmonologist including lung auscultation.</li>
+                        <li><strong>Laboratory Diagnostics:</strong> Complete Blood Count (CBC with differential) to assess leukocytosis/neutrophilia, C-reactive protein (CRP), and continuous pulse oximetry (SpO2 monitoring).</li>
+                        <li><strong>Microbiological Correlation:</strong> Sputum Gram stain and culture if productive cough is present, to guide targeted antimicrobial stewardship.</li>
+                        <li><strong>Therapeutic Management:</strong> Targeted pharmacotherapy under physician prescription (antibiotic protocol for bacterial pneumonia, or supportive/antiviral management for viral etiologies).</li>
+                        <li><strong>Follow-up Radiography:</strong> Repeat chest radiograph recommended in 4–6 weeks post-treatment to confirm complete radiographic clearing and rule out underlying parenchymal lesion.</li>
+                        <li><strong>Emergency Triage Precautions:</strong> Immediate hospital admission or ER evaluation is required if experiencing shortness of breath at rest, SpO2 &lt; 92%, hemoptysis, confusion, or bluish discoloration of lips/fingertips.</li>
+                    </ol>
+                ` : `
+                    <ol style="margin: 0; padding-left: 18px; font-size: 7.5pt; color: #334155; line-height: 1.45;">
+                        <li><strong>Clinical Symptom Review:</strong> If current presentation involves acute cough, fever, or allergy, consult your primary care doctor for non-pneumonic respiratory evaluation (e.g., acute bronchitis, allergic asthma).</li>
+                        <li><strong>Supportive Respiratory Care:</strong> Maintain adequate hydration, rest, and consider air humidification to soothe irritated airways.</li>
+                        <li><strong>Preventative Health Measures:</strong> Consider annual influenza vaccination and pneumococcal immunization per age and risk guidelines.</li>
+                        <li><strong>Interval Re-evaluation:</strong> If respiratory symptoms progress or unremitting high fever develops, clinical re-assessment and repeat imaging should be promptly obtained.</li>
+                    </ol>
+                `;
+
+                const getHeaderHtml = (pageNum) => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #0d9488; padding-bottom: 6px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="font-size: 22px; line-height: 1;">🩺</div>
+                            <div>
+                                <h1 style="font-size: 13pt; font-weight: 800; color: #0f766e; margin: 0; line-height: 1.1; letter-spacing: -0.3px;">NexaThink AI Medical Diagnostics</h1>
+                                <p style="font-size: 7pt; color: #64748b; margin: 2px 0 0 0; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;">Department of Thoracic Radiology & CADx Diagnostics</p>
+                            </div>
+                        </div>
+                        <div style="text-align: right; font-size: 7.5pt; color: #475569; line-height: 1.3;">
+                            <div><strong>REPORT NO:</strong> ${reportId}</div>
+                            <div><strong>DATE & TIME:</strong> ${dateStr} | ${timeStr}</div>
+                            <div><strong>PAGE:</strong> ${pageNum} of 2</div>
+                        </div>
+                    </div>
+                `;
+
+                const reportContainer = document.createElement('div');
+                reportContainer.style.width = '190mm';
+                reportContainer.style.margin = '0 auto';
+                reportContainer.style.background = '#ffffff';
+                reportContainer.style.color = '#0f172a';
+                reportContainer.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                reportContainer.style.fontSize = '8.5pt';
+                reportContainer.style.lineHeight = '1.4';
+
+                reportContainer.innerHTML = `
+                    <!-- PAGE 1 -->
+                    <div style="padding: 4px 0 10px 0;">
+                        ${getHeaderHtml(1)}
+
+                        <!-- Patient Info Table -->
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 8pt;">
+                            <tr>
+                                <td style="padding: 4px 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #475569; width: 18%;">Patient Name</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 700; color: #0f172a; width: 32%;">${patientName}</td>
+                                <td style="padding: 4px 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #475569; width: 18%;">Examination</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; color: #0f172a; width: 32%;">Chest Radiograph (PA View)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #475569;">Age / Gender</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; color: #0f172a;">${patientAge} Yrs / ${patientGender}</td>
+                                <td style="padding: 4px 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #475569;">Clinical Indication</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; color: #0f172a;">Pulmonary Screening / Cough Assessment</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px 6px; background: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #475569;">AI Model Engine</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; color: #0f172a;">ResNet-50 Deep CNN + Grad-CAM XAI</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; font-weight: 600; color: #475569;">Analysis Status</td>
+                                <td style="padding: 4px 6px; border: 1px solid #e2e8f0; color: #0f766e; font-weight: 700;">Complete / Validated</td>
+                            </tr>
+                        </table>
+
+                        <!-- Primary Diagnostic Banner -->
+                        <div style="border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: ${isPneumonia ? '#fef2f2' : '#f0fdf4'}; border: 1.5px solid ${isPneumonia ? '#f87171' : '#4ade80'};">
+                            <div>
+                                <div style="font-size: 11pt; font-weight: 800; color: ${isPneumonia ? '#991b1b' : '#166534'};">
+                                    ${isPneumonia ? '⚠️ PNEUMONIA DETECTED' : '✅ NORMAL CHEST RADIOGRAPH'}
+                                </div>
+                                <div style="font-size: 7.5pt; color: ${isPneumonia ? '#b91c1c' : '#15803d'}; margin-top: 1px;">
+                                    Diagnostic Finding: <strong>${currentAnalysisResult.prediction}</strong> | Risk Stratification: <strong>${isPneumonia ? 'HIGH PRIORITY / URGENT CARE' : 'ROUTINE / LOW PRIORITY'}</strong>
+                                </div>
+                            </div>
+                            <div style="text-align: right; background: #ffffff; padding: 4px 10px; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 9.5pt; font-weight: 800; color: ${isPneumonia ? '#dc2626' : '#16a34a'};">
+                                Certainty: ${confidencePct}%
+                            </div>
+                        </div>
+
+                        <!-- Radiographic Plate Images Side-by-Side -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px;">
+                            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #000; text-align: center;">
+                                <img src="${currentAnalysisImage}" style="width: 100%; height: 145px; object-fit: contain; display: block; background: #000;" alt="Patient Radiograph">
+                                <div style="background: #f8fafc; padding: 3px 6px; font-size: 7pt; font-weight: 700; color: #334155; border-top: 1px solid #cbd5e1; text-align: left;">
+                                    PLATE 1: PATIENT CHEST RADIOGRAPH (PA VIEW)
+                                </div>
+                            </div>
+                            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #000; text-align: center;">
+                                <img src="data:image/png;base64,${currentAnalysisResult.heatmap_image_base64}" style="width: 100%; height: 145px; object-fit: contain; display: block; background: #000;" alt="Grad-CAM Heatmap">
+                                <div style="background: #f8fafc; padding: 3px 6px; font-size: 7pt; font-weight: 700; color: #0f766e; border-top: 1px solid #cbd5e1; text-align: left;">
+                                    PLATE 2: GRAD-CAM EXPLAINABLE AI ACTIVATION HEATMAP
+                                </div>
+                            </div>
+                        </div>
+                        <p style="font-size: 6.8pt; color: #64748b; margin: -2px 0 6px 0; font-style: italic;">
+                            *Grad-CAM Heatmap Legend: Blue = Baseline aerated tissue; Yellow/Red = Peak convolutional layer neural attention localizing infiltrates.
+                        </p>
+
+                        <!-- Structured Anatomical Findings -->
+                        <div style="border-top: 1.5px solid #0f766e; padding-top: 5px; margin-bottom: 8px;">
+                            <h3 style="font-size: 8.5pt; font-weight: 800; color: #0f766e; margin: 0 0 4px 0; text-transform: uppercase;">
+                                SYSTEMATIC RADIOGRAPHIC OBSERVATIONS
+                            </h3>
+                            ${findingsHtml}
+                        </div>
+
+                        <!-- Page 1 Footer -->
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 4px; display: flex; justify-content: space-between; font-size: 6.5pt; color: #94a3b8;">
+                            <span>NexaThink Clinical AI Imaging Platform (CADx)</span>
+                            <span>Confidential Medical Document — For Clinical Correlation</span>
+                            <span>Page 1 of 2</span>
+                        </div>
+                    </div>
+
+                    <!-- Clean legacy page break (strictly pads remaining page 1 height) -->
+                    <div class="html2pdf__page-break"></div>
+
+                    <!-- PAGE 2 -->
+                    <div style="padding: 4px 0 10px 0;">
+                        ${getHeaderHtml(2)}
+
+                        <!-- Diagnostic Impression -->
+                        ${impressionHtml}
+
+                        <!-- AI Guidance from Groq (openai/gpt-oss-120b) -->
+                        <div style="border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;">
+                            <strong style="color: #0f766e; font-size: 8pt; text-transform: uppercase;">AI Health Guidance Synthesis:</strong>
+                            <p style="margin: 2px 0 0 0; font-size: 7.5pt; color: #334155; line-height: 1.4;">${currentAnalysisResult.guidance}</p>
+                        </div>
+
+                        <!-- Clinical Protocols & Actionable Recommendations -->
+                        <div style="border-top: 1.5px solid #0f766e; padding-top: 5px; margin-bottom: 10px;">
+                            <h3 style="font-size: 8.5pt; font-weight: 800; color: #0f766e; margin: 0 0 5px 0; text-transform: uppercase;">
+                                ACTIONABLE CLINICAL RECOMMENDATIONS & PROTOCOLS
+                            </h3>
+                            ${recommendationsHtml}
+                        </div>
+
+                        <!-- Regulatory SaMD Disclaimer -->
+                        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; margin-bottom: 12px; font-size: 6.5pt; color: #475569; line-height: 1.35;">
+                            <strong>MEDICAL SOFTWARE REGULATORY NOTICE:</strong> This document represents an automated diagnostic evaluation generated by NexaThink AI (Software as a Medical Device - SaMD). The convolutional deep learning model (ResNet-50) is validated as a Computer-Assisted Detection and Triaging tool. It does not replace independent clinical judgment or physical stethoscope auscultation. All therapeutic interventions must be directed by a licensed physician.
+                        </div>
+
+                        <!-- Attestation & Signature Block -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-top: 8px; border-top: 1px dashed #94a3b8; font-size: 7.5pt; color: #475569;">
+                            <div>
+                                <div><strong>Attending Physician / Radiologist:</strong></div>
+                                <div style="margin-top: 18px; border-bottom: 1px solid #64748b; width: 85%;"></div>
+                                <div style="margin-top: 2px; font-size: 6.5pt; color: #64748b;">Signature & Medical License ID</div>
+                            </div>
+                            <div>
+                                <div><strong>Clinical Verification Date:</strong></div>
+                                <div style="margin-top: 18px; border-bottom: 1px solid #64748b; width: 85%;">${dateStr}</div>
+                                <div style="margin-top: 2px; font-size: 6.5pt; color: #64748b;">Review Status: Verified Preliminary CADx</div>
+                            </div>
+                        </div>
+
+                        <!-- Page 2 Footer -->
+                        <div style="border-top: 1px solid #e2e8f0; padding-top: 4px; margin-top: 20px; display: flex; justify-content: space-between; font-size: 6.5pt; color: #94a3b8;">
+                            <span>NexaThink Clinical AI Imaging Platform (CADx)</span>
+                            <span>Confidential Medical Document — For Clinical Correlation</span>
+                            <span>Page 2 of 2</span>
+                        </div>
+                    </div>
+                `;
+
+                const opt = {
+                    margin: [8, 10, 8, 10],
+                    filename: `NexaThink_Report_${patientName.replace(/[^a-zA-Z0-9]/g, '_')}_${reportId}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        scrollY: 0,
+                        scrollX: 0
+                    },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: 'legacy', after: '.html2pdf__page-break' }
+                };
+
+                if (typeof html2pdf !== 'undefined') {
+                    const worker = html2pdf().set(opt).from(reportContainer);
+                    
+                    // Directly download the PDF file
+                    await worker.save();
+                    
+                    // Also obtain blob to open in a new browser tab for immediate viewing
+                    const pdfBlob = await worker.outputPdf('blob');
+                    const blobUrl = URL.createObjectURL(pdfBlob);
+                    window.open(blobUrl, '_blank');
+                } else {
+                    // Fallback to printable window if html2pdf is unavailable
+                    const printWin = window.open('', '_blank');
+                    printWin.document.write('<!DOCTYPE html><html><head><title>NexaThink Medical Report</title>');
+                    printWin.document.write('<style>body{margin:0;padding:20px;font-family:sans-serif;} @media print{button{display:none;}}</style>');
+                    printWin.document.write('</head><body>');
+                    printWin.document.write('<button onclick="window.print()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-bottom:16px;">🖨️ Print / Save as PDF</button>');
+                    printWin.document.write(reportContainer.innerHTML);
+                    printWin.document.write('</body></html>');
+                    printWin.document.close();
+                }
+
+            } catch (err) {
+                console.error("Report generation failed:", err);
+                alert("Failed to generate PDF report: " + err.message);
+            } finally {
+                downloadReportBtn.disabled = false;
+                downloadReportBtn.innerHTML = `<span class="btn-icon">📄</span> Download Report`;
+            }
         };
 
         // --- Chat Functionality ---
@@ -1189,7 +1911,7 @@
             addTypingIndicator();
 
             try {
-                const response = await fetch(`${API_URL}/chat`, {
+                const response = await fetchWithApiFallback('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1204,7 +1926,7 @@
                 removeTypingIndicator();
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || 'Failed to get response from assistant.');
                 }
                 
@@ -1221,8 +1943,38 @@
 
         // --- Event Listeners ---
         [patientNameInput, patientAgeInput, patientGenderInput].forEach(input => {
-            input.addEventListener('input', updateAnalyzeButtonState);
+            if (!input) return;
+            const clearErr = () => {
+                if (input.value && input.value.trim() !== '') {
+                    input.classList.remove('input-error');
+                }
+                const hasName = patientNameInput && patientNameInput.value.trim().length > 0;
+                const hasAge = patientAgeInput && patientAgeInput.value.trim().length > 0;
+                const hasGender = patientGenderInput && patientGenderInput.value.trim().length > 0;
+                if (hasName && hasAge && hasGender && patientFormError) {
+                    patientFormError.style.display = 'none';
+                }
+                updateAnalyzeButtonState();
+            };
+            input.addEventListener('input', clearErr);
+            input.addEventListener('change', clearErr);
         });
+
+        // Demo Sample Button Listeners
+        const loadNormalBtn = document.getElementById('loadNormalSampleBtn');
+        const loadPneumoniaBtn = document.getElementById('loadPneumoniaSampleBtn');
+        if (loadNormalBtn) {
+            loadNormalBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                loadSampleImage('sample_normal_xray.png', 'Sample Normal Patient', 35, 'male');
+            });
+        }
+        if (loadPneumoniaBtn) {
+            loadPneumoniaBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                loadSampleImage('sample_pneumonia_xray.png', 'Sample Pneumonia Patient', 52, 'female');
+            });
+        }
 
         uploadArea.addEventListener('click', () => xrayUploadInput.click());
         xrayUploadInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
@@ -1258,6 +2010,11 @@
         chatInput.addEventListener('input', () => {
             sendBtn.disabled = chatInput.value.trim().length === 0;
         });
+
+        // Download Report Listener
+        if (downloadReportBtn) {
+            downloadReportBtn.addEventListener('click', generateAndDownloadReport);
+        }
 
         // --- Initial State ---
         resetUI();

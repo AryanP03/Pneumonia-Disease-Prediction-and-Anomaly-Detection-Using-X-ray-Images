@@ -1,3 +1,23 @@
 pneumonia_resnet_best_model_1.h5
-venv/
+bacteria_vs_viral_resnet_best_model_2nd_attempt.h5
 anomaly_detector_1.h5
+venv/
+.venv/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.local
+*.env
+*.env.*
+!.env.example
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary & Upload files
+app/uploads/*
+!app/uploads/.gitkeep
+test_validation_images/
