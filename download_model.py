@@ -2,8 +2,8 @@ import os
 import sys
 import urllib.request
 
-# Name of the model required by the AI diagnostic backend
 MODEL_FILENAME = "pneumonia_resnet_best_model_1.h5"
+DEFAULT_MODEL_URL = "https://github.com/AryanP03/Pneumonia-Disease-Prediction-and-Anomaly-Detection-Using-X-ray-Images/releases/download/v1.0.0/pneumonia_resnet_best_model_1.h5"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TARGET_PATHS = [
@@ -26,28 +26,51 @@ def check_existing_model():
 def download_model(url):
     target = TARGET_PATHS[0]
     os.makedirs(os.path.dirname(target), exist_ok=True)
+    temp_target = target + ".part"
     print(f"[DOWNLOAD] Downloading model weights from:\n  {url}\nTo:\n  {target}")
 
-    def progress_hook(count, block_size, total_size):
-        downloaded = count * block_size
-        if total_size > 0:
-            pct = min(100.0, downloaded / total_size * 100.0)
-            mb_down = downloaded / (1024 * 1024)
-            mb_tot = total_size / (1024 * 1024)
-            print(f"\rDownloading: {pct:.1f}% ({mb_down:.1f}/{mb_tot:.1f} MB)", end="", flush=True)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    req = urllib.request.Request(url, headers=headers)
 
     try:
-        urllib.request.urlretrieve(url, target, reporthook=progress_hook)
+        with urllib.request.urlopen(req) as response, open(temp_target, "wb") as out_file:
+            total_size = int(response.headers.get("Content-Length", 0))
+            downloaded = 0
+            chunk_size = 1024 * 1024  # 1MB chunk
+
+            while True:
+                chunk = response.read(chunk_size)
+                if not chunk:
+                    break
+                out_file.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    pct = (downloaded / total_size) * 100.0
+                    mb_down = downloaded / (1024 * 1024)
+                    mb_tot = total_size / (1024 * 1024)
+                    print(f"\rProgress: {pct:.1f}% ({mb_down:.1f} / {mb_tot:.1f} MB)", end="", flush=True)
+
         print()
+        if os.path.exists(target):
+            os.remove(target)
+        os.rename(temp_target, target)
+
         final_size = os.path.getsize(target)
         if final_size > 1024 * 1024:
-            print(f"[SUCCESS] Download completed! Size: {final_size / (1024 * 1024):.1f} MB")
+            print(f"[SUCCESS] Download completed! Verified size: {final_size / (1024 * 1024):.1f} MB")
             return True
         else:
-            print(f"[ERROR] Downloaded file is too small ({final_size} bytes). Verify the URL.")
+            print(f"[ERROR] Downloaded file is too small ({final_size} bytes).")
             return False
     except Exception as e:
         print(f"\n[ERROR] Failed to download model: {e}")
+        if os.path.exists(temp_target):
+            try:
+                os.remove(temp_target)
+            except Exception:
+                pass
         return False
 
 def main():
@@ -56,15 +79,11 @@ def main():
         print("[READY] Model is already present and valid.")
         return
 
-    url = os.getenv("MODEL_DOWNLOAD_URL", "").strip()
-    if not url:
-        print("[INFO] MODEL_DOWNLOAD_URL is not set.")
-        print("[INFO] If you are using Git LFS, ensure 'git lfs pull' has run.")
-        print("[INFO] Otherwise, set MODEL_DOWNLOAD_URL in your Render Environment Variables to download on build.")
-        return
-
+    url = os.getenv("MODEL_DOWNLOAD_URL", "").strip() or DEFAULT_MODEL_URL
+    print(f"[INFO] Using model source: {url}")
     success = download_model(url)
     if not success:
+        print("[CRITICAL] Could not download model weights.")
         sys.exit(1)
 
 if __name__ == "__main__":

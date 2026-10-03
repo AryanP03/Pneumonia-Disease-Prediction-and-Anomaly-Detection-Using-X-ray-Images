@@ -82,19 +82,26 @@ def find_model_path(model_filename):
             else:
                 print(f"--- Notice: Found {path} but size is only {size} bytes (likely an unpulled Git LFS pointer). ---")
 
-    # If model is not found locally, check if MODEL_DOWNLOAD_URL is provided in environment
-    download_url = os.getenv('MODEL_DOWNLOAD_URL', '').strip()
+    # If model is not found locally, check if MODEL_DOWNLOAD_URL is provided in environment or use default release
+    DEFAULT_RELEASE_URL = "https://github.com/AryanP03/Pneumonia-Disease-Prediction-and-Anomaly-Detection-Using-X-ray-Images/releases/download/v1.0.0/pneumonia_resnet_best_model_1.h5"
+    download_url = os.getenv('MODEL_DOWNLOAD_URL', '').strip() or DEFAULT_RELEASE_URL
     if download_url:
         target_path = os.path.join(BASE_DIR, os.path.basename(model_filename))
         try:
             import urllib.request
             print(f"--- Downloading model weights from {download_url} to {target_path}... ---")
-            urllib.request.urlretrieve(download_url, target_path)
+            req = urllib.request.Request(download_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req) as response, open(target_path, "wb") as out_file:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    out_file.write(chunk)
             if os.path.exists(target_path) and os.path.getsize(target_path) > 1024 * 1024:
                 print(f"--- Model downloaded successfully ({os.path.getsize(target_path) / (1024*1024):.1f} MB) ---")
                 return target_path
         except Exception as e:
-            print(f"--- Error downloading model from MODEL_DOWNLOAD_URL: {e} ---")
+            print(f"--- Error downloading model from download_url: {e} ---")
 
     return None
 
