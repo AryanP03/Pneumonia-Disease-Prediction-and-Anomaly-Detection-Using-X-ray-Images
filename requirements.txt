@@ -19,9 +19,8 @@ flask-cors>=4.0.0,<5.0.0
 Werkzeug>=2.3.0,<3.1.0
 gunicorn>=21.2.0
 
-# Generative AI (Groq API)
-groq>=0.37.0
-google-generativeai>=0.2.0
+# Generative AI
+requests>=2.31.0
 
 # Utility & Environment
 python-dotenv>=1.0.0

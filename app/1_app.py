@@ -14,8 +14,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model, Model
 
-# --- Generative AI Imports (Groq) ---
-from groq import Groq
+# --- Generative AI Imports ---
+import requests
 
 # --- Configuration & Environment Loading ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -256,17 +256,12 @@ def validate_chest_xray(image_path):
 
 # --- Configure Generative AI (Groq) ---
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '').strip()
-GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b').strip()
-groq_client = None
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'mixtral-8x7b-32768').strip()
+has_groq = bool(GROQ_API_KEY)
 
-if GROQ_API_KEY:
-    try:
-        groq_client = Groq(api_key=GROQ_API_KEY)
-        masked_key = GROQ_API_KEY[:7] + "..." + GROQ_API_KEY[-4:] if len(GROQ_API_KEY) > 12 else "***"
-        print(f"--- Groq Generative AI configured successfully (Model: {GROQ_MODEL}, Key: {masked_key}) ---")
-    except Exception as e:
-        print(f"--- Error configuring Groq client: {e} ---")
-        groq_client = None
+if has_groq:
+    masked_key = GROQ_API_KEY[:7] + "..." + GROQ_API_KEY[-4:] if len(GROQ_API_KEY) > 12 else "***"
+    print(f"--- Groq Generative AI configured successfully (Model: {GROQ_MODEL}, Key: {masked_key}) ---")
 else:
     print("--- Notice: GROQ_API_KEY not configured. Rule-based clinical knowledge engine will be used. ---")
 
@@ -302,7 +297,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_initial_guidance(prediction_text):
-    if groq_client:
+    if has_groq:
         prompt = (
             f"You are NexaThink AI health assistant. A chest X-ray radiograph analysis has just been performed "
             f"with the primary finding of '{prediction_text}'. Provide a compassionate, clear, and reassuring initial message. "
@@ -310,16 +305,22 @@ def generate_initial_guidance(prediction_text):
             f"Keep it concise (2-3 sentences) without any markdown headers or asterisks."
         )
         try:
-            completion = groq_client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": [
                     {"role": "system", "content": "You are a professional, empathetic clinical AI assistant."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=200
-            )
-            reply = completion.choices[0].message.content
+                "temperature": 0.7,
+                "max_tokens": 200
+            }
+            response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=10)
+            response.raise_for_status()
+            reply = response.json()['choices'][0]['message']['content']
             if reply and reply.strip():
                 return reply.strip()
         except Exception as e:
@@ -328,7 +329,7 @@ def generate_initial_guidance(prediction_text):
     return FALLBACK_GUIDANCE.get(prediction_text, FALLBACK_GUIDANCE["Pneumonia Detected"])
 
 def generate_chat_reply(user_message, history):
-    if groq_client:
+    if has_groq:
         try:
             messages = [
                 {
@@ -349,13 +350,19 @@ def generate_chat_reply(user_message, history):
             
             messages.append({"role": "user", "content": user_message})
 
-            completion = groq_client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=messages,
-                temperature=0.7,
-                max_tokens=500
-            )
-            reply = completion.choices[0].message.content
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 500
+            }
+            response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=10)
+            response.raise_for_status()
+            reply = response.json()['choices'][0]['message']['content']
             if reply and reply.strip():
                 return reply.strip()
         except Exception as e:
@@ -527,7 +534,7 @@ def health():
         "status": "online",
         "model_loaded": classifier_model is not None,
         "sub_model_loaded": sub_classifier_model is not None,
-        "groq_configured": groq_client is not None,
+        "groq_configured": has_groq,
         "groq_model": GROQ_MODEL
     })
 
