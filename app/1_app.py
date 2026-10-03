@@ -9,10 +9,29 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # --- ML/Image Processing Imports --- 
+# NOTE: Full TensorFlow is intentionally NOT imported. It alone needs ~400 MB of RAM,
+# which crashes Render's 512 MB free tier. Inference runs on the lightweight LiteRT
+# (TFLite) interpreter instead, and Grad-CAM is computed in NumPy.
+import json
+import threading
 import cv2
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import load_model, Model
+
+try:
+    from ai_edge_litert.interpreter import Interpreter as TFLiteInterpreter
+    TFLITE_BACKEND = "ai-edge-litert"
+except ImportError:
+    try:
+        from tflite_runtime.interpreter import Interpreter as TFLiteInterpreter
+        TFLITE_BACKEND = "tflite-runtime"
+    except ImportError:
+        try:
+            import tensorflow as _tf  # local development fallback only
+            TFLiteInterpreter = _tf.lite.Interpreter
+            TFLITE_BACKEND = "tensorflow.lite"
+        except ImportError:
+            TFLiteInterpreter = None
+            TFLITE_BACKEND = None
 
 # --- Generative AI Imports ---
 import requests
@@ -65,85 +84,140 @@ def add_cors_headers(response):
     response.headers['Access-Control-Max-Age'] = '86400'
     return response
 
-# --- Helper: Model Resolution ---
-def find_model_path(model_filename):
-    possible_paths = [
-        os.path.join(BASE_DIR, model_filename),
-        os.path.join(PROJECT_ROOT, model_filename),
-        model_filename,
-        os.path.join(r'D:\techrush_2025', model_filename),
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            size = os.path.getsize(path)
-            # A real .h5 model is > 1MB; Git LFS text pointers are ~130 bytes
-            if size > 1024 * 1024:
-                return path
+# --- Lightweight TFLite Classifier ---
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
+_ACTIVATIONS = {
+    "relu": (lambda x: np.maximum(x, 0.0), lambda x: (x > 0).astype(np.float32)),
+    "linear": (lambda x: x, lambda x: np.ones_like(x)),
+    "sigmoid": (lambda x: 1.0 / (1.0 + np.exp(-x)), None),
+}
+
+
+class TFLiteClassifier:
+    """Runs the float16 TFLite export of the ResNet50 pneumonia classifier.
+
+    The TFLite graph has two outputs: the last conv feature map (7x7x2048) and the
+    final sigmoid probability. Grad-CAM is reproduced exactly in NumPy using the
+    dense-head weights (GAP -> Dense(relu) -> Dropout -> Dense(sigmoid)).
+    """
+
+    def __init__(self, tflite_path, head_path=None, meta_path=None):
+        self.lock = threading.Lock()  # TFLite interpreters are not thread-safe
+        self.interpreter = TFLiteInterpreter(model_path=tflite_path, num_threads=1)
+        self.interpreter.allocate_tensors()
+        self.input_detail = self.interpreter.get_input_details()[0]
+        outputs = self.interpreter.get_output_details()
+        self.feature_idx = None
+        self.prob_idx = None
+        for o in outputs:
+            if len(o['shape']) == 4:
+                self.feature_idx = o['index']
             else:
-                print(f"--- Notice: Found {path} but size is only {size} bytes (likely an unpulled Git LFS pointer). ---")
+                self.prob_idx = o['index']
+        if self.prob_idx is None:
+            raise RuntimeError("TFLite model has no probability output.")
 
-    # If model is not found locally, check if MODEL_DOWNLOAD_URL is provided in environment or use default release
-    DEFAULT_RELEASE_URL = "https://github.com/AryanP03/Pneumonia-Disease-Prediction-and-Anomaly-Detection-Using-X-ray-Images/releases/download/v1.0.0/pneumonia_resnet_best_model_1.h5"
-    download_url = os.getenv('MODEL_DOWNLOAD_URL', '').strip() or DEFAULT_RELEASE_URL
-    if download_url:
-        target_path = os.path.join(BASE_DIR, os.path.basename(model_filename))
-        try:
-            import urllib.request
-            print(f"--- Downloading model weights from {download_url} to {target_path}... ---")
-            req = urllib.request.Request(download_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req) as response, open(target_path, "wb") as out_file:
-                while True:
-                    chunk = response.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    out_file.write(chunk)
-            if os.path.exists(target_path) and os.path.getsize(target_path) > 1024 * 1024:
-                print(f"--- Model downloaded successfully ({os.path.getsize(target_path) / (1024*1024):.1f} MB) ---")
-                return target_path
-        except Exception as e:
-            print(f"--- Error downloading model from download_url: {e} ---")
+        self.head = None
+        self.activations = []
+        if head_path and os.path.exists(head_path):
+            data = np.load(head_path)
+            n = len([k for k in data.files if k.startswith('W')])
+            self.head = [(data[f'W{i}'], data[f'b{i}']) for i in range(n)]
+            if meta_path and os.path.exists(meta_path):
+                with open(meta_path) as f:
+                    self.activations = json.load(f).get('dense_activations', [])
+            if len(self.activations) != len(self.head):
+                self.activations = ['relu'] * (len(self.head) - 1) + ['sigmoid']
 
-    return None
+    def run(self, img_batch):
+        x = img_batch.astype(np.float32)
+        with self.lock:
+            self.interpreter.set_tensor(self.input_detail['index'], x)
+            self.interpreter.invoke()
+            prob = float(np.array(self.interpreter.get_tensor(self.prob_idx)).flatten()[0])
+            features = None
+            if self.feature_idx is not None:
+                features = np.array(self.interpreter.get_tensor(self.feature_idx))[0].astype(np.float32)
+        return prob, features
+
+    def gradcam(self, features, is_pneumonia=True):
+        """Exact Grad-CAM for a GAP + dense head, without autodiff."""
+        if features is None or not self.head:
+            return None
+        h, w, _ = features.shape
+        a = features.mean(axis=(0, 1))  # GlobalAveragePooling2D
+        pre_acts = []
+        for i, (W, b) in enumerate(self.head):
+            z = a @ W + b
+            pre_acts.append((a, z))
+            act = self.activations[i]
+            a = _ACTIVATIONS.get(act, _ACTIVATIONS['linear'])[0](z)
+        # d(output)/d(logit) for sigmoid output; positive scale factor is irrelevant after
+        # normalisation, only the sign matters (Normal class uses 1 - p).
+        grad = np.ones_like(a) * (1.0 if is_pneumonia else -1.0)
+        for i in range(len(self.head) - 1, -1, -1):
+            W, _ = self.head[i]
+            inp, z = pre_acts[i]
+            act = self.activations[i]
+            if act != 'sigmoid' and i != len(self.head) - 1:
+                deriv = _ACTIVATIONS.get(act, _ACTIVATIONS['linear'])[1]
+                grad = grad * deriv(z)
+            grad = grad @ W.T
+        pooled_grads = grad / float(h * w)  # gradient through GAP is uniform
+        heatmap = features @ pooled_grads
+        heatmap = np.maximum(heatmap, 0)
+        heatmap = heatmap / (np.max(heatmap) + 1e-8)
+        return heatmap.astype(np.float32)
+
+
+def find_tflite_bundle(env_key, default_name, head_name, meta_name):
+    name = os.getenv(env_key, '').strip()
+    if not name.lower().endswith('.tflite'):
+        # Legacy env values point to .h5 Keras files, which need full TensorFlow - ignore them.
+        name = default_name
+    for path in [os.path.join(MODELS_DIR, name), os.path.join(BASE_DIR, name), os.path.join(PROJECT_ROOT, name), name]:
+        if os.path.exists(path) and os.path.getsize(path) > 1024 * 1024:
+            d = os.path.dirname(os.path.abspath(path))
+            return path, os.path.join(d, head_name), os.path.join(d, meta_name)
+    return None, None, None
+
 
 # --- Load Classification Models ---
-model_env_path = os.getenv('CLASSIFIER_MODEL_PATH', 'pneumonia_resnet_best_model_1.h5')
-classifier_path = find_model_path(model_env_path)
+classifier_model = None
 classifier_error = None
-if classifier_path:
-    try:
-        classifier_model = load_model(classifier_path, compile=False)
-        print(f"--- Classification Model loaded successfully from: {classifier_path} ---")
-    except Exception as e:
-        classifier_error = str(e)
-        print(f"--- Error loading classification model: {e} ---")
-        classifier_model = None
+if TFLiteInterpreter is None:
+    classifier_error = "No TFLite runtime installed (pip install ai-edge-litert)."
+    print(f"--- {classifier_error} ---")
 else:
-    print(f"--- WARNING: {model_env_path} not found ---")
-    classifier_model = None
+    tfl_path, head_path, meta_path = find_tflite_bundle(
+        'CLASSIFIER_MODEL_PATH', 'pneumonia_classifier_fp16.tflite', 'pneumonia_head.npz', 'pneumonia_meta.json')
+    if tfl_path:
+        try:
+            classifier_model = TFLiteClassifier(tfl_path, head_path, meta_path)
+            print(f"--- Classification Model loaded via {TFLITE_BACKEND} from: {tfl_path} ---")
+        except Exception as e:
+            classifier_error = str(e)
+            print(f"--- Error loading classification model: {e} ---")
+    else:
+        classifier_error = "pneumonia_classifier_fp16.tflite not found in app/models/."
+        print(f"--- WARNING: {classifier_error} ---")
 
-sub_model_env_path = os.getenv('SUB_CLASSIFIER_MODEL_PATH', 'bacteria_vs_viral_resnet_best_model_2nd_attempt.h5')
-sub_classifier_path = find_model_path(sub_model_env_path)
+# Optional bacterial-vs-viral sub-classifier (only used if a TFLite export is provided)
+sub_classifier_model = None
 sub_classifier_error = None
-if sub_classifier_path:
-    try:
-        sub_classifier_model = load_model(sub_classifier_path, compile=False)
-        print(f"--- Sub-Classification Model (Bacterial/Viral) loaded successfully from: {sub_classifier_path} ---")
-    except Exception as e:
-        sub_classifier_error = str(e)
-        print(f"--- Error loading sub-classification model: {e} ---")
-        sub_classifier_model = None
-else:
-    sub_classifier_model = None
+if TFLiteInterpreter is not None:
+    sub_path, _, _ = find_tflite_bundle('SUB_CLASSIFIER_MODEL_PATH', 'bacteria_vs_viral_fp16.tflite', '', '')
+    if sub_path:
+        try:
+            sub_classifier_model = TFLiteClassifier(sub_path)
+            print(f"--- Sub-Classification Model loaded from: {sub_path} ---")
+        except Exception as e:
+            sub_classifier_error = str(e)
+            print(f"--- Error loading sub-classification model: {e} ---")
 
-# --- Load Auxiliary Backbone for Medical vs. Non-Medical Object Discrimination ---
-try:
-    # Disable MobileNetV2 to save ~100MB of RAM for Render Free Tier limits
-    # validation_backbone = tf.keras.applications.MobileNetV2(weights='imagenet')
-    validation_backbone = None
-    print("--- Auxiliary Validation Model (MobileNetV2 ImageNet) disabled for memory optimization ---")
-except Exception as e:
-    print(f"--- Notice: Could not load MobileNetV2 for validation ({e}). Using radiographic validator. ---")
-    validation_backbone = None
+validation_backbone = None  # ImageNet object check disabled (memory); radiographic validator is used
+
 
 # --- Chest Radiograph Anatomical & Morphological Validator ---
 def validate_chest_xray(image_path):
@@ -242,19 +316,6 @@ def validate_chest_xray(image_path):
     edge_density = float(np.mean(edges > 0))
     if edge_density < 0.015:
         return False, "Lacks internal radiographic rib and lung textures.", 0.2
-
-    # 6. Deep ImageNet Object Check
-    if validation_backbone is not None:
-        try:
-            resized_rgb = cv2.resize(rgb_img, (224, 224))
-            x = tf.keras.applications.mobilenet_v2.preprocess_input(resized_rgb.astype(np.float32))
-            preds = validation_backbone.predict(np.expand_dims(x, 0), verbose=0)
-            top_pred = tf.keras.applications.mobilenet_v2.decode_predictions(preds, top=1)[0][0]
-            top_class_name, top_conf = top_pred[1], float(top_pred[2])
-            if top_conf > 0.45:
-                return False, f"Identified non-medical object: {top_class_name} ({top_conf:.2f}).", 0.0
-        except Exception as e:
-            print(f"--- MobileNet validation warning: {e} ---")
 
     conf = min(0.99, max(0.70, best_corr * 0.5 + (std_val / 100.0) * 0.3 + 0.2))
     return True, "Valid chest radiograph confirmed.", round(float(conf), 2)
@@ -418,24 +479,7 @@ def generate_chat_reply(user_message, history):
         )
 
 # --- Grad-CAM XAI Functionality ---
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name, is_pneumonia=True):
-    grad_model = Model(inputs=model.inputs, outputs=[model.get_layer(last_conv_layer_name).output, model.output])
-    with tf.GradientTape() as tape:
-        last_conv_layer_output, preds = grad_model(img_array)
-        # Class channel: for binary classification with sigmoid output (0: Normal, 1: Pneumonia)
-        if is_pneumonia:
-            class_channel = preds[0]
-        else:
-            class_channel = 1.0 - preds[0]
-    grads = tape.gradient(class_channel, last_conv_layer_output)
-    if grads is None:
-        return None
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    last_conv_layer_output = last_conv_layer_output[0]
-    heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-    heatmap = tf.maximum(heatmap, 0) / (tf.math.reduce_max(heatmap) + 1e-8)
-    return heatmap.numpy()
+# Grad-CAM is computed inside TFLiteClassifier.gradcam() (pure NumPy, no TensorFlow).
 
 def generate_heatmap_image_base64(original_image_path, heatmap):
     img = cv2.imread(original_image_path)
@@ -460,7 +504,7 @@ def generate_heatmap_image_base64(original_image_path, heatmap):
 # --- Full Analysis Pipeline ---
 def run_full_analysis(image_path):
     if not classifier_model:
-        raise RuntimeError("Classification model is not loaded. Please ensure pneumonia_resnet_best_model_1.h5 is present.")
+        raise RuntimeError(f"Classification model is not loaded. {classifier_error or ''}".strip())
 
     print(f"--- Running Classification on {image_path} ---")
     img_cls = cv2.imread(image_path)
@@ -468,12 +512,11 @@ def run_full_analysis(image_path):
         raise ValueError(f"Image not found or unreadable at path: {image_path}")
     img_cls = cv2.cvtColor(img_cls, cv2.COLOR_BGR2RGB)
     img_cls = cv2.resize(img_cls, (224, 224))
-    img_cls_norm = img_cls / 255.0
+    img_cls_norm = (img_cls.astype(np.float32) / 255.0)
     img_cls_norm = np.expand_dims(img_cls_norm, axis=0)
     
-    # Primary classification (Normal vs. Pneumonia)
-    prediction_raw = classifier_model.predict(img_cls_norm)
-    prediction_score = float(prediction_raw.flatten()[0])
+    # Primary classification (Normal vs. Pneumonia) - one forward pass also yields conv features
+    prediction_score, feature_map = classifier_model.run(img_cls_norm)
     
     is_pneumonia = prediction_score > 0.5
     if is_pneumonia:
@@ -483,8 +526,7 @@ def run_full_analysis(image_path):
         if sub_classifier_model:
             print("--- Pneumonia detected, running sub-classification... ---")
             try:
-                sub_prediction_raw = sub_classifier_model.predict(img_cls_norm)
-                sub_prediction_score = float(sub_prediction_raw.flatten()[0])
+                sub_prediction_score, _ = sub_classifier_model.run(img_cls_norm)
                 if sub_prediction_score > 0.5:
                     prediction_text = "Viral Pneumonia Detected"
                 else:
@@ -500,10 +542,8 @@ def run_full_analysis(image_path):
     # Grad-CAM heatmap generation specifically highlighting affected regions
     heatmap_base64 = None
     try:
-        last_conv_layer_name = next((layer.name for layer in reversed(classifier_model.layers) if 'conv' in layer.name), None)
-        if last_conv_layer_name:
-            heatmap = make_gradcam_heatmap(img_cls_norm, classifier_model, last_conv_layer_name, is_pneumonia=is_pneumonia)
-            heatmap_base64 = generate_heatmap_image_base64(image_path, heatmap)
+        heatmap = classifier_model.gradcam(feature_map, is_pneumonia=is_pneumonia)
+        heatmap_base64 = generate_heatmap_image_base64(image_path, heatmap)
     except Exception as e:
         print(f"--- Grad-CAM generation warning: {e} ---")
     
