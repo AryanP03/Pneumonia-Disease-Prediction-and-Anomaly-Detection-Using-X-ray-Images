@@ -11,9 +11,12 @@
     <script src="html2pdf.bundle.min.js"></script>
     <script>
         if (typeof html2pdf === 'undefined') {
-            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>');
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\\/script>');
         }
     </script>
+    
+    <!-- Markdown Parser for Chat -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         /* NexaThink AI Medical Assistant - Complete Styling */
@@ -653,24 +656,57 @@
         }
 
         .message-bubble {
-            max-width: 80%;
+            max-width: 85%;
             padding: 12px 16px;
             border-radius: 18px;
             font-size: 14px;
             line-height: 1.5;
-            white-space: pre-wrap;
         }
 
         .message.user .message-bubble {
             background: var(--gradient-primary);
             color: white;
             border-bottom-right-radius: 6px;
+            white-space: pre-wrap;
         }
 
         .message.ai .message-bubble {
-            background: var(--primary-light);
+            background: #ffffff;
             color: var(--primary-dark);
             border-bottom-left-radius: 6px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* Markdown Styles for AI Bubble */
+        .message.ai .message-bubble p {
+            margin-bottom: 8px;
+        }
+        .message.ai .message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+        .message.ai .message-bubble ul, .message.ai .message-bubble ol {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+        .message.ai .message-bubble table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+        .message.ai .message-bubble th, .message.ai .message-bubble td {
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .message.ai .message-bubble th {
+            background: var(--primary-light);
+            font-weight: 600;
+        }
+        .message.ai .message-bubble strong {
+            font-weight: 600;
+            color: var(--primary-dark);
         }
 
         .typing-indicator {
@@ -1928,7 +1964,17 @@
                 
                 const bubble = document.createElement('div');
                 bubble.classList.add('message-bubble');
-                bubble.textContent = msg.content;
+                
+                if (msg.sender === 'model' || msg.sender === 'ai') {
+                    if (typeof marked !== 'undefined') {
+                        // Parse markdown for AI messages
+                        bubble.innerHTML = marked.parse(msg.content);
+                    } else {
+                        bubble.textContent = msg.content;
+                    }
+                } else {
+                    bubble.textContent = msg.content;
+                }
                 
                 messageEl.appendChild(bubble);
                 chatMessages.appendChild(messageEl);
