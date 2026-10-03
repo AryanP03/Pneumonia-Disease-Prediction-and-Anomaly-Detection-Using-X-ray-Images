@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "/samples/(.*)",
+      "dest": "/data/samples/$1"
+    },
+    {
+      "src": "/html2pdf.bundle.min.js",
+      "dest": "/app/html2pdf.bundle.min.js"
+    },
+    {
+      "src": "/1_index.html",
+      "dest": "/app/1_index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

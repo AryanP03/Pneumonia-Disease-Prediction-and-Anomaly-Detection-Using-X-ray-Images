@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: nexathink-ai-medical-backend
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: python download_model.py && pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 wsgi:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.14
+      - key: FLASK_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: MODEL_DOWNLOAD_URL
+        sync: false

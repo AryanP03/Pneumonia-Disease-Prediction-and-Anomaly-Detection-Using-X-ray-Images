@@ -75,7 +75,27 @@ def find_model_path(model_filename):
     ]
     for path in possible_paths:
         if os.path.exists(path):
-            return path
+            size = os.path.getsize(path)
+            # A real .h5 model is > 1MB; Git LFS text pointers are ~130 bytes
+            if size > 1024 * 1024:
+                return path
+            else:
+                print(f"--- Notice: Found {path} but size is only {size} bytes (likely an unpulled Git LFS pointer). ---")
+
+    # If model is not found locally, check if MODEL_DOWNLOAD_URL is provided in environment
+    download_url = os.getenv('MODEL_DOWNLOAD_URL', '').strip()
+    if download_url:
+        target_path = os.path.join(BASE_DIR, os.path.basename(model_filename))
+        try:
+            import urllib.request
+            print(f"--- Downloading model weights from {download_url} to {target_path}... ---")
+            urllib.request.urlretrieve(download_url, target_path)
+            if os.path.exists(target_path) and os.path.getsize(target_path) > 1024 * 1024:
+                print(f"--- Model downloaded successfully ({os.path.getsize(target_path) / (1024*1024):.1f} MB) ---")
+                return target_path
+        except Exception as e:
+            print(f"--- Error downloading model from MODEL_DOWNLOAD_URL: {e} ---")
+
     return None
 
 # --- Load Classification Models ---
