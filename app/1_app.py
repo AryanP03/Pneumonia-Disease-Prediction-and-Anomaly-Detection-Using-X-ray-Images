@@ -108,11 +108,13 @@ def find_model_path(model_filename):
 # --- Load Classification Models ---
 model_env_path = os.getenv('CLASSIFIER_MODEL_PATH', 'pneumonia_resnet_best_model_1.h5')
 classifier_path = find_model_path(model_env_path)
+classifier_error = None
 if classifier_path:
     try:
         classifier_model = load_model(classifier_path)
         print(f"--- Classification Model loaded successfully from: {classifier_path} ---")
     except Exception as e:
+        classifier_error = str(e)
         print(f"--- Error loading classification model: {e} ---")
         classifier_model = None
 else:
@@ -121,11 +123,13 @@ else:
 
 sub_model_env_path = os.getenv('SUB_CLASSIFIER_MODEL_PATH', 'bacteria_vs_viral_resnet_best_model_2nd_attempt.h5')
 sub_classifier_path = find_model_path(sub_model_env_path)
+sub_classifier_error = None
 if sub_classifier_path:
     try:
         sub_classifier_model = load_model(sub_classifier_path)
         print(f"--- Sub-Classification Model (Bacterial/Viral) loaded successfully from: {sub_classifier_path} ---")
     except Exception as e:
+        sub_classifier_error = str(e)
         print(f"--- Error loading sub-classification model: {e} ---")
         sub_classifier_model = None
 else:
@@ -533,7 +537,9 @@ def health():
     return jsonify({
         "status": "online",
         "model_loaded": classifier_model is not None,
+        "model_error": classifier_error,
         "sub_model_loaded": sub_classifier_model is not None,
+        "sub_model_error": sub_classifier_error,
         "groq_configured": has_groq,
         "groq_model": GROQ_MODEL
     })
