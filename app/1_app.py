@@ -111,7 +111,7 @@ classifier_path = find_model_path(model_env_path)
 classifier_error = None
 if classifier_path:
     try:
-        classifier_model = load_model(classifier_path)
+        classifier_model = load_model(classifier_path, compile=False)
         print(f"--- Classification Model loaded successfully from: {classifier_path} ---")
     except Exception as e:
         classifier_error = str(e)
@@ -126,7 +126,7 @@ sub_classifier_path = find_model_path(sub_model_env_path)
 sub_classifier_error = None
 if sub_classifier_path:
     try:
-        sub_classifier_model = load_model(sub_classifier_path)
+        sub_classifier_model = load_model(sub_classifier_path, compile=False)
         print(f"--- Sub-Classification Model (Bacterial/Viral) loaded successfully from: {sub_classifier_path} ---")
     except Exception as e:
         sub_classifier_error = str(e)
@@ -137,8 +137,10 @@ else:
 
 # --- Load Auxiliary Backbone for Medical vs. Non-Medical Object Discrimination ---
 try:
-    validation_backbone = tf.keras.applications.MobileNetV2(weights='imagenet')
-    print("--- Auxiliary Validation Model (MobileNetV2 ImageNet) loaded successfully ---")
+    # Disable MobileNetV2 to save ~100MB of RAM for Render Free Tier limits
+    # validation_backbone = tf.keras.applications.MobileNetV2(weights='imagenet')
+    validation_backbone = None
+    print("--- Auxiliary Validation Model (MobileNetV2 ImageNet) disabled for memory optimization ---")
 except Exception as e:
     print(f"--- Notice: Could not load MobileNetV2 for validation ({e}). Using radiographic validator. ---")
     validation_backbone = None
